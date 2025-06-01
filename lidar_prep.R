@@ -160,6 +160,7 @@ for (zip_file in zip_files) {
   all_footprints[[zip_name]] <- footprints
 }
 
+
 # Baltimore zip files did not want to cooperate in this function. Unzipping mannually and loading in.
 # Set projection string (or keep it consistent with what you've used before)
 crs_proj <- "ESRI:103069"
@@ -189,6 +190,9 @@ all_footprints_named <- lapply(names(all_footprints), function(name) {
 })
 combined_footprints <- do.call(rbind, all_footprints_named)
 
+#save
+st_write(combined_footprints, "F:/MASTERS/THESIS/data/raw_lidar/all_lidar_footprints.shp")
+
 # Plot with your study area polygons (`extents`)
 mapview(extents, col.regions = "red", alpha.regions = 0.5) + 
   mapview(combined_footprints, 
@@ -196,8 +200,6 @@ mapview(extents, col.regions = "red", alpha.regions = 0.5) +
           layer.name = "LAS Catalog",
           zcol = "source_zip"
           )
-#mapview goes here
-
 
 
 ### Seneca First
