@@ -93,7 +93,7 @@ mapview(all_extents, col.regions = "red", alpha.regions = 0.5) +
 
 
 # Working with raw lidar files ----
-### Visualize Blocks downloaded
+### Visualize Blocks downloaded to ensure we have the correct ones
 #Unzip and read in laz files as lascatalog items
 zip_files <- c("F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2018/Mont_2018_BLK2.zip", 
                "F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2018/Mont_2018_BLK3.zip",
@@ -106,167 +106,9 @@ zip_files <- c("F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2018/Mont_2018_BLK2.
                "F:/MASTERS/THESIS/data/raw_lidar/Howard/2018/How_2018_BLK_3.zip",
                "F:/MASTERS/THESIS/data/raw_lidar/Harford/2020/Harford_2020_BLK1.zip",
                "F:/MASTERS/THESIS/data/raw_lidar/Baltimore/2015/BLK_30.zip",
-               "F:/MASTERS/THESIS/data/raw_lidar/Baltimore/2015/BLK_31.zip")
+               "F:/MASTERS/THESIS/data/raw_lidar/Baltimore/2015/BLK_31.zip"
+               )
 
-
-
-
-
-
-
-
-# Add to your existing footprints list
-blk32_footprints$sorc_zp <- "Baltimore_BLK_32"
-mont4_footprints$sorc_zp <- "Mont_2018_BLK4"
-
-#Keep only similar columns
-common_cols <- intersect(names(all_footprints), names(mont4_footprints))
-all_footprints <- all_footprints[, common_cols]
-mont4_footprints <- mont4_footprints[, common_cols]
-
-all_footprints <- rbind(all_footprints, mont4_footprints)
-
-#Visualize footprints for all downloaded laz data to ensure correct files were downloaded.
-#Load study areas shapefile
-extents<- read_sf("F:/MASTERS/THESIS/data/extents/all_extents.shp")
-# Combine the footprints list into one sf object
-# Add a column to each footprint indicating its source
-all_footprints_named <- lapply(names(all_footprints), function(name) {
-  sf_obj <- all_footprints[[name]]
-  sf_obj$source_zip <- name  # Add zip name as a new column
-  return(sf_obj)
-})
-combined_footprints <- do.call(rbind, all_footprints_named)
-
-#save
-st_write(combined_footprints, "F:/MASTERS/THESIS/data/raw_lidar/all_lidar_footprints.shp")
-
-# Plot with your study area polygons (`extents`)
-mapview(extents, col.regions = "red", alpha.regions = 0.5) + 
-  mapview(all_footprints, 
-          color = "lightblue", 
-          layer.name = "LAS Catalog",
-          zcol = "sorc_zp",
-          alpha.regions = 0.3
-          )
-
-mapview(blk31_footprints, col.regions = "red", alpha.regions = 0.5)
-
-
-
-### Seneca First
-#extract metadata for each block
-
-
-# Clipping raw lidar to study area ----
-#Harford did not like the crs assigned and plotted in West Virginia. lidR package does not have the ability to reproject lascatalog items until they have already been converted to las files. We will handle Harford county separately. 
-harf1_cat <- readLAScatalog("F:/MASTERS/THESIS/data/raw_lidar/Harford/2020/Harford_2020_BLK1/Harford_2020_BLK1")
-crs_info <- projection(harf1_cat)
-print(crs_info)
-#Not in same projection as other files, need to reproject
-ctg_proj <- catalog_reproject(ctg, "ESRI:103069")
-harf1_footprints <- st_as_sf(harf1_cat)
-
-# Merging Counties ----
-
-## Dealing with duplicates 
-
-# Save as las file ----
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#Montgomery County Block 2
-mont_lidar <- paste0("E:/MDLiDAR/Montgomery/Mont_2018_BLK2/LAZ")
-
-mont_cat<- readLAScatalog(mont_lidar)
-crs(mont_cat)
-projection(mont_cat) <- "ESRI:103069"
-
-# Convert catalog extent to sf polygons (footprints)
-mont_cat_sf <- st_as_sf(mont_cat)
-
-#View las catalog item with extent
-mapview(bbox_sf, col.regions = "lightblue", alpha.regions = 0.5) + 
-  mapview(mont_cat_sf, color = "red", layer.name = "LAS Catalog")
-
-plot(mont_cat_proj, mapview=TRUE, map.type="Esri.WorldStreetMap")
-
-crs(mont_cat_sf)
-
-mont_cat_proj<- mont_cat%>% 
-  st_set_crs("ESRI:103069")
-
-st_crs(mont_cat_proj)
-
-plot(mont_cat_proj, mapview=TRUE, map.type="Esri.WorldStreetMap")
-
-
-#Montgomery County Block 3
-mont_lidar <- paste0("E:/MDLiDAR/Montgomery/Montgomery_2020_BLK6/LAZ")
-
-mont_cat<- readLAScatalog(mont_lidar)
-
-plot(mont_cat, mapview=TRUE, map.type="Esri.WorldStreetMap")
-
-st_crs(mont_cat)
-
-mont_cat_proj<- mont_cat%>% 
-  st_set_crs("ESRI:103069")
-
-st_crs(mont_cat_proj)
-
-plot(mont_cat_proj, mapview=TRUE, map.type="Esri.WorldStreetMap")
-
-#Montgomery County Block 4
-mont_lidar <- paste0("E:/MDLiDAR/Montgomery/Montgomery_2020_BLK6/LAZ")
-
-mont_cat<- readLAScatalog(mont_lidar)
-
-plot(mont_cat, mapview=TRUE, map.type="Esri.WorldStreetMap")
-
-st_crs(mont_cat)
-
-mont_cat_proj<- mont_cat%>% 
-  st_set_crs("ESRI:103069")
-
-st_crs(mont_cat_proj)
-
-plot(mont_cat_proj, mapview=TRUE, map.type="Esri.WorldStreetMap")
-
-#Montgomery County Block 6
-mont_lidar <- paste0("E:/MDLiDAR/Montgomery/Mont_2018_BLK6/LAZ")
-
-mont_cat<- readLAScatalog(mont_lidar)
-
-plot(mont_cat, mapview=TRUE, map.type="Esri.WorldStreetMap")
-
-st_crs(mont_cat)
-
-mont_cat_proj<- mont_cat%>% 
-  st_set_crs("ESRI:103069")
-
-st_crs(mont_cat_proj)
-
-plot(mont_cat_proj, mapview=TRUE, map.type="Esri.WorldStreetMap")
-
-
-
-# Footprints thing ---- 
 #function for unzipping and saving footprints
 qaqc_zip_lidar <- function(zip_path, crs_proj = "ESRI:103069") {
   # Create a unique temporary folder
@@ -322,3 +164,111 @@ for (zip_file in zip_files) {
   zip_name <- tools::file_path_sans_ext(basename(zip_file))
   all_footprints[[zip_name]] <- footprints
 }
+
+
+# Add to your existing footprints list
+blk32_footprints$sorc_zp <- "Baltimore_BLK_32"
+mont4_footprints$sorc_zp <- "Mont_2018_BLK4"
+
+#Keep only similar columns
+common_cols <- intersect(names(all_footprints), names(mont4_footprints))
+all_footprints <- all_footprints[, common_cols]
+mont4_footprints <- mont4_footprints[, common_cols]
+
+all_footprints <- rbind(all_footprints, mont4_footprints)
+
+#Visualize footprints for all downloaded laz data to ensure correct files were downloaded.
+#Load study areas shapefile
+extents<- read_sf("F:/MASTERS/THESIS/data/extents/all_extents.shp")
+# Combine the footprints list into one sf object
+# Add a column to each footprint indicating its source
+all_footprints_named <- lapply(names(all_footprints), function(name) {
+  sf_obj <- all_footprints[[name]]
+  sf_obj$source_zip <- name  # Add zip name as a new column
+  return(sf_obj)
+})
+combined_footprints <- do.call(rbind, all_footprints_named)
+
+#save
+st_write(combined_footprints, "F:/MASTERS/THESIS/data/raw_lidar/all_lidar_footprints.shp")
+
+# Plot with your study area polygons (`extents`)
+mapview(extents, col.regions = "red", alpha.regions = 0.5) + 
+  mapview(all_footprints, 
+          color = "lightblue", 
+          layer.name = "LAS Catalog",
+          zcol = "sorc_zp",
+          alpha.regions = 0.3
+          )
+
+mapview(blk31_footprints, col.regions = "red", alpha.regions = 0.5)
+
+
+
+### Seneca First
+#extract metadata for each block
+
+
+# Clipping raw lidar to study area ----
+#This workflow will unzip laz folders to a temp dir, -> extract footprint & save as shapefile -> clip las catalog item to study area -> save as las file -> clean up temp dir
+zip_files <- c("F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2018/Mont_2018_BLK2.zip", 
+               "F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2018/Mont_2018_BLK3.zip",
+               "F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2018/Mont_2018_BLK4.zip",
+               "F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2020/Mont_2020_BLK2.zip", 
+               "F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2020/Mont_2020_BLK3.zip",
+               "F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2020/Mont_2020_BLK4.zip",
+               "F:/MASTERS/THESIS/data/raw_lidar/Howard/2018/How_2018_BLK_1.zip",
+               "F:/MASTERS/THESIS/data/raw_lidar/Howard/2018/How_2018_BLK_2.zip",
+               "F:/MASTERS/THESIS/data/raw_lidar/Howard/2018/How_2018_BLK_3.zip",
+               "F:/MASTERS/THESIS/data/raw_lidar/Harford/2020/Harford_2020_BLK1.zip",
+               "F:/MASTERS/THESIS/data/raw_lidar/Harford/2013/Harford_2013_BLK34.zip",
+               "F:/MASTERS/THESIS/data/raw_lidar/Baltimore/2015/BLK_30.zip",
+               "F:/MASTERS/THESIS/data/raw_lidar/Baltimore/2015/BLK_31.zip"
+)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#Harford did not like the crs assigned and plotted in West Virginia. lidR package does not have the ability to reproject lascatalog items until they have already been converted to las files. We will handle Harford county separately. 
+harf1_cat <- readLAScatalog("F:/MASTERS/THESIS/data/raw_lidar/Harford/2020/Harford_2020_BLK1/Harford_2020_BLK1")
+crs_info <- projection(harf1_cat)
+print(crs_info)
+#Not in same projection as other files, need to reproject
+ctg_proj <- catalog_reproject(ctg, "ESRI:103069")
+harf1_footprints <- st_as_sf(harf1_cat)
+
+# Merging Counties ----
+
+## Dealing with duplicates 
+
+# Save as las file ----
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
