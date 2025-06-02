@@ -96,23 +96,20 @@ mapview(all_extents, col.regions = "red", alpha.regions = 0.5) +
 ### Visualize Blocks downloaded to ensure we have the correct ones
 #Unzip and read in laz files as lascatalog items
 zip_files <- c("F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2018/Mont_2018_BLK2.zip", 
-               "F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2018/Mont_2018_BLK3.zip",
                "F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2018/Mont_2018_BLK4.zip",
                "F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2020/Mont_2020_BLK2.zip", 
-               "F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2020/Mont_2020_BLK3.zip",
                "F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2020/Mont_2020_BLK4.zip",
                "F:/MASTERS/THESIS/data/raw_lidar/Howard/2018/How_2018_BLK_1.zip",
                "F:/MASTERS/THESIS/data/raw_lidar/Howard/2018/How_2018_BLK_2.zip",
-               "F:/MASTERS/THESIS/data/raw_lidar/Howard/2018/How_2018_BLK_3.zip",
-               "F:/MASTERS/THESIS/data/raw_lidar/Harford/2020/Harford_2020_BLK1.zip",
                "F:/MASTERS/THESIS/data/raw_lidar/Baltimore/2015/BLK_30.zip",
                "F:/MASTERS/THESIS/data/raw_lidar/Baltimore/2015/BLK_31.zip"
                )
 
 #function for unzipping and saving footprints
-qaqc_zip_lidar <- function(zip_path, crs_proj = "ESRI:103069") {
-  # Create a unique temporary folder
-  unzip_dir <- file.path(tempdir(), tools::file_path_sans_ext(basename(zip_path)))
+qaqc_zip_lidar <- function(zip_path, crs_proj = "ESRI:103069", temp_root = "F:/MASTERS/THESIS/data/raw_lidar/tmp_unzip") {
+  # Create a unique temp folder in user-specified writable location
+  zip_name <- tools::file_path_sans_ext(basename(zip_path))
+  unzip_dir <- file.path(temp_root, zip_name)
   dir.create(unzip_dir, showWarnings = FALSE, recursive = TRUE)
   
   message("Unzipping: ", zip_path)
@@ -128,19 +125,10 @@ qaqc_zip_lidar <- function(zip_path, crs_proj = "ESRI:103069") {
     unlink(unzip_dir, recursive = TRUE)
     return(NULL)
   }
-  
-  # Find the directory (or directories) containing laz files
-  laz_dirs <- unique(dirname(laz_files))
-  
-  if (length(laz_dirs) > 1) {
-    warning("Multiple .laz directories found. Using the top unzip directory for readLAScatalog().")
-    las_folder <- unzip_dir
-  } else {
-    las_folder <- laz_dirs[1]
-  }
-  
-  message("Reading LAScatalog from: ", las_folder)
-  cat_las <- readLAScatalog(las_folder)
+
+  # Read LAScatalog from the root unzip folder (recursive by default)
+  message("Reading LAScatalog from unzip folder: ", unzip_dir)
+  cat_las <- readLAScatalog(unzip_dir)
   
   message("Projection:", print(projection(cat_las)))
   projection(cat_las) <- crs_proj
@@ -165,10 +153,6 @@ for (zip_file in zip_files) {
   all_footprints[[zip_name]] <- footprints
 }
 
-
-# Add to your existing footprints list
-blk32_footprints$sorc_zp <- "Baltimore_BLK_32"
-mont4_footprints$sorc_zp <- "Mont_2018_BLK4"
 
 #Keep only similar columns
 common_cols <- intersect(names(all_footprints), names(mont4_footprints))
@@ -248,8 +232,8 @@ process_zip <- function(zip_path, study_area, output_dir, fallback_crs = "EPSG:2
   }
   
   all_files <- list.files(unzip_dir, recursive = TRUE, full.names = TRUE)
-  print(paste("Files found in", unzip_dir, ":", paste(all_files, collapse = "\n")))   #temporary
-  laz_files <- all_files[grepl("\\.laz$", all_files, ignore.case = TRUE)]
+  #print(paste("Files found in", unzip_dir, ":", paste(all_files, collapse = "\n")))   #temporary
+  laz_files <- list.files(unzip_dir, pattern = "\\.laz$", full.names = TRUE, recursive = TRUE)
   
   if (length(laz_files) == 0) {
     warning("No .laz files found in: ", zip_path)
@@ -318,7 +302,7 @@ process_zip <- function(zip_path, study_area, output_dir, fallback_crs = "EPSG:2
 all_outputs <- list()
 all_footprints <- list()
 
-#starting at 11:28 AM 
+#starting at 2:15 pm
 
 for (zip_file in zip_files) {
   result <- process_zip(zip_file, study_area=extents, output_dir = "F:/MASTERS/THESIS/data/raw_lidar/Clip")
