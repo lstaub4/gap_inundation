@@ -6,7 +6,7 @@
 
 # Set up Environment ----
 library(pacman)
-p_load(mapview, sf, ggplot2, mapview, lidR, terra, tidyterra, fs)
+p_load(mapview, sf, ggplot2, mapview, lidR, terra, tidyterra, fs, archive)
 
 # Create clipping polygon ----
 #Load MD county lidar blocks shapefile
@@ -217,10 +217,8 @@ extents<- read_sf("F:/MASTERS/THESIS/data/extents/all_extents.shp")
 
 #Set paths to each zipped laz folder
 zip_files <- c("F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2018/Mont_2018_BLK2.zip", 
-               "F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2018/Mont_2018_BLK3.zip",
                "F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2018/Mont_2018_BLK4.zip",
                "F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2020/Mont_2020_BLK2.zip", 
-               "F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2020/Mont_2020_BLK3.zip",
                "F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2020/Mont_2020_BLK4.zip",
                "F:/MASTERS/THESIS/data/raw_lidar/Howard/2018/How_2018_BLK_1.zip",
                "F:/MASTERS/THESIS/data/raw_lidar/Howard/2018/How_2018_BLK_2.zip",
@@ -229,51 +227,89 @@ zip_files <- c("F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2018/Mont_2018_BLK2.
                "F:/MASTERS/THESIS/data/raw_lidar/Baltimore/2015/BLK_31.zip"
 )
 
-process_zip <- function(zip_path, study_area, output_dir, crs_proj = "ESRI:103069") {
-  # Create a unique temporary folder
+process_zip <- function(zip_path, study_area, output_dir, fallback_crs = "EPSG:2893") {
   unzip_dir <- file.path(tempdir(), tools::file_path_sans_ext(basename(zip_path)))
-  dir_create(unzip_dir)
+  dir.create(unzip_dir, showWarnings = FALSE, recursive = TRUE)
   
   message("Unzipping: ", zip_path)
-  unzip(zip_path, exdir = unzip_dir)
+  archive_extract(zip_path, dir = unzip_dir)
   
-  # Find .laz files
-  laz_files <- dir(unzip_dir, recursive = TRUE, pattern = "\\.laz$", full.names = TRUE)
+  #check if unzip actually happens
+  unzip_result <- tryCatch({
+    unzip(zip_path, exdir = unzip_dir)
+  }, error = function(e) {
+    message("❌ Failed to unzip: ", zip_path)
+    return(NULL)
+  })
+  
+  if (is.null(unzip_result)) {
+    warning("Could not unzip: ", zip_path)
+    return(NULL)
+  }
+  
+  all_files <- list.files(unzip_dir, recursive = TRUE, full.names = TRUE)
+  print(paste("Files found in", unzip_dir, ":", paste(all_files, collapse = "\n")))   #temporary
+  laz_files <- all_files[grepl("\\.laz$", all_files, ignore.case = TRUE)]
+  
   if (length(laz_files) == 0) {
     warning("No .laz files found in: ", zip_path)
+    unlink(unzip_dir, recursive = TRUE)
+    return(NULL)
+  }
+  
+  laz_dirs <- unique(dirname(laz_files))
+  las_folder <- if (length(laz_dirs) > 1) unzip_dir else laz_dirs[1]
+  
+  message("Reading LAScatalog from: ", las_folder)
+  cat_las <- readLAScatalog(las_folder)
+  
+  # Detect or assign CRS
+  current_crs <- st_crs(cat_las)
+  if (is.na(current_crs)) {
+    message("CRS not found in LAS header. Assigning fallback CRS: EPSG:2893 (NAD83(HARN) / Maryland ftUS)", fallback_crs)
+    projection(cat_las) <- fallback_crs
+    current_crs <- st_crs(cat_las)
+  } else {
+    message("Detected CRS: ", current_crs$input)
+  }
+  
+  # Reproject study area to LAS CRS
+  study_area_proj <- st_transform(study_area, current_crs)
+  
+  # Generate footprint
+  footprint <- st_as_sf(cat_las)
+  footprint$source_zip <- tools::file_path_sans_ext(basename(zip_path))
+  
+  # Quick mapview
+  print(
+    mapview(footprint, col.regions = "blue", alpha.regions = 0.4, layer.name = "LAS Footprint") +
+      mapview(study_area_proj, col.regions = "red", alpha.regions = 0.3, layer.name = "Study Area")
+  )
+  message("Mapview ready for: ", las_folder)
+  
+  # Clip
+  clipped_catalog <- clip_roi(cat_las, study_area_proj)
+  
+  # Check if result is a LAScatalog
+  if (!inherits(clipped_catalog, "LAScatalog")) {
+    message("No points found in the ROI for: ", zip_path, ". Skipping...")
     dir_delete(unzip_dir)
     return(NULL)
   }
   
-  # Read as LAScatalog
-  cat_las <- readLAScatalog(dirname(laz_files[1]))
-  projection(cat_las) <- crs_proj
-  
-  # Generate footprint and tag with source zip
-  footprint <- st_as_sf(cat_las)
-  footprint$source_zip <- tools::file_path_sans_ext(basename(zip_path))
-  
-  # Reproject study area
-  study_area_proj <- st_transform(study_area, crs_proj)
-  
-  # Clip LAScatalog to study area
-  clipped_catalog <- clip_roi(cat_las, study_area_proj)
-  
-  # Set output options
   zip_name <- tools::file_path_sans_ext(basename(zip_path))
   output_subdir <- file.path(output_dir, zip_name)
-  dir_create(output_subdir)
+  dir.create(output_subdir, showWarnings = FALSE, recursive = TRUE)
   
   opt_output_files(clipped_catalog) <- file.path(output_subdir, "tile_{ID}")
   opt_laz_compression(clipped_catalog) <- TRUE
   
   message("Processing and writing clipped files to: ", output_subdir)
-  catalog_apply(clipped_catalog, identity)  # Just triggers the write
+  catalog_apply(clipped_catalog, identity)
   
   message("Cleaning up temporary files for: ", zip_name)
-  dir_delete(unzip_dir)
+  unlink(unzip_dir, recursive = TRUE)
   
-  # Return both output path and footprint
   return(list(output_path = output_subdir, footprint = footprint))
 }
 
@@ -282,7 +318,7 @@ process_zip <- function(zip_path, study_area, output_dir, crs_proj = "ESRI:10306
 all_outputs <- list()
 all_footprints <- list()
 
-
+#starting at 11:28 AM 
 
 for (zip_file in zip_files) {
   result <- process_zip(zip_file, study_area=extents, output_dir = "F:/MASTERS/THESIS/data/raw_lidar/Clip")
@@ -292,8 +328,6 @@ for (zip_file in zip_files) {
     all_footprints[[zip_name]] <- result$footprint
   }
 }
-
-
 
 #Save footprints as shapefile
 combined_footprints <- do.call(rbind, all_footprints)
