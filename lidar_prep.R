@@ -6,7 +6,7 @@
 
 # Set up Environment ----
 library(pacman)
-p_load(mapview, sf, ggplot2, mapview, lidR, terra, tidyterra)
+p_load(mapview, sf, ggplot2, mapview, lidR, terra, tidyterra, fs)
 
 # Create clipping polygon ----
 #Load MD county lidar blocks shapefile
@@ -211,6 +211,11 @@ mapview(blk31_footprints, col.regions = "red", alpha.regions = 0.5)
 
 # Clipping raw lidar to study area ----
 #This workflow will unzip laz folders to a temp dir, -> extract footprint & save as shapefile -> clip las catalog item to study area -> save as las file -> clean up temp dir
+
+#Load study areas shapefile
+extents<- read_sf("F:/MASTERS/THESIS/data/extents/all_extents.shp")
+
+#Set paths to each zipped laz folder
 zip_files <- c("F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2018/Mont_2018_BLK2.zip", 
                "F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2018/Mont_2018_BLK3.zip",
                "F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2018/Mont_2018_BLK4.zip",
@@ -220,26 +225,89 @@ zip_files <- c("F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2018/Mont_2018_BLK2.
                "F:/MASTERS/THESIS/data/raw_lidar/Howard/2018/How_2018_BLK_1.zip",
                "F:/MASTERS/THESIS/data/raw_lidar/Howard/2018/How_2018_BLK_2.zip",
                "F:/MASTERS/THESIS/data/raw_lidar/Howard/2018/How_2018_BLK_3.zip",
-               "F:/MASTERS/THESIS/data/raw_lidar/Harford/2020/Harford_2020_BLK1.zip",
-               "F:/MASTERS/THESIS/data/raw_lidar/Harford/2013/Harford_2013_BLK34.zip",
                "F:/MASTERS/THESIS/data/raw_lidar/Baltimore/2015/BLK_30.zip",
                "F:/MASTERS/THESIS/data/raw_lidar/Baltimore/2015/BLK_31.zip"
 )
 
+process_zip <- function(zip_path, study_area, output_dir, crs_proj = "ESRI:103069") {
+  # Create a unique temporary folder
+  unzip_dir <- file.path(tempdir(), tools::file_path_sans_ext(basename(zip_path)))
+  dir_create(unzip_dir)
+  
+  message("Unzipping: ", zip_path)
+  unzip(zip_path, exdir = unzip_dir)
+  
+  # Find .laz files
+  laz_files <- dir(unzip_dir, recursive = TRUE, pattern = "\\.laz$", full.names = TRUE)
+  if (length(laz_files) == 0) {
+    warning("No .laz files found in: ", zip_path)
+    dir_delete(unzip_dir)
+    return(NULL)
+  }
+  
+  # Read as LAScatalog
+  cat_las <- readLAScatalog(dirname(laz_files[1]))
+  projection(cat_las) <- crs_proj
+  
+  # Generate footprint and tag with source zip
+  footprint <- st_as_sf(cat_las)
+  footprint$source_zip <- tools::file_path_sans_ext(basename(zip_path))
+  
+  # Reproject study area
+  study_area_proj <- st_transform(study_area, crs_proj)
+  
+  # Clip LAScatalog to study area
+  clipped_catalog <- clip_roi(cat_las, study_area_proj)
+  
+  # Set output options
+  zip_name <- tools::file_path_sans_ext(basename(zip_path))
+  output_subdir <- file.path(output_dir, zip_name)
+  dir_create(output_subdir)
+  
+  opt_output_files(clipped_catalog) <- file.path(output_subdir, "tile_{ID}")
+  opt_laz_compression(clipped_catalog) <- TRUE
+  
+  message("Processing and writing clipped files to: ", output_subdir)
+  catalog_apply(clipped_catalog, identity)  # Just triggers the write
+  
+  message("Cleaning up temporary files for: ", zip_name)
+  dir_delete(unzip_dir)
+  
+  # Return both output path and footprint
+  return(list(output_path = output_subdir, footprint = footprint))
+}
+
+
+#Run function 
+all_outputs <- list()
+all_footprints <- list()
 
 
 
+for (zip_file in zip_files) {
+  result <- process_zip(zip_file, study_area=extents, output_dir = "F:/MASTERS/THESIS/data/raw_lidar/Clip")
+  if (!is.null(result)) {
+    zip_name <- tools::file_path_sans_ext(basename(zip_file))
+    all_outputs[[zip_name]] <- result$output_path
+    all_footprints[[zip_name]] <- result$footprint
+  }
+}
 
 
 
+#Save footprints as shapefile
+combined_footprints <- do.call(rbind, all_footprints)
 
-
-
+# Save as shapefile or geopackage
+st_write(combined_footprints, "path/to/save/combined_footprints.shp", delete_dsn = TRUE)
 
 
 
 
 #Harford did not like the crs assigned and plotted in West Virginia. lidR package does not have the ability to reproject lascatalog items until they have already been converted to las files. We will handle Harford county separately. 
+zip_files <- c("F:/MASTERS/THESIS/data/raw_lidar/Harford/2020/Harford_2020_BLK1.zip", "F:/MASTERS/THESIS/data/raw_lidar/Harford/2013/Harford_2013_BLK34.zip")
+
+
 harf1_cat <- readLAScatalog("F:/MASTERS/THESIS/data/raw_lidar/Harford/2020/Harford_2020_BLK1/Harford_2020_BLK1")
 crs_info <- projection(harf1_cat)
 print(crs_info)
