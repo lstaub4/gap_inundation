@@ -6,7 +6,7 @@
 
 # Set up Environment ----
 library(pacman)
-p_load(mapview, sf, ggplot2, mapview, lidR, terra, tidyterra, fs, archive)
+p_load(mapview, sf, ggplot2, mapview, lidR, terra, tidyterra, fs, archive, tools)
 
 # Create clipping polygon ----
 #Load MD county lidar blocks shapefile
@@ -95,20 +95,11 @@ mapview(all_extents, col.regions = "red", alpha.regions = 0.5) +
 # Working with raw lidar files ----
 ### Visualize Blocks downloaded to ensure we have the correct ones
 #Unzip and read in laz files as lascatalog items
-zip_files <- c("F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2018/Mont_2018_BLK2.zip", 
-               "F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2018/Mont_2018_BLK4.zip",
-               "F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2020/Mont_2020_BLK2.zip", 
-               "F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2020/Mont_2020_BLK4.zip",
-               "F:/MASTERS/THESIS/data/raw_lidar/Howard/2018/How_2018_BLK_1.zip",
-               "F:/MASTERS/THESIS/data/raw_lidar/Howard/2018/How_2018_BLK_2.zip",
-               "F:/MASTERS/THESIS/data/raw_lidar/Baltimore/2015/BLK_30.zip",
-               "F:/MASTERS/THESIS/data/raw_lidar/Baltimore/2015/BLK_31.zip"
-               )
 
-#function for unzipping and saving footprints
+#function for unzipping and saving footprints for folder structure type 1
 qaqc_zip_lidar <- function(zip_path, crs_proj = "ESRI:103069", temp_root = "F:/MASTERS/THESIS/data/raw_lidar/tmp_unzip") {
   # Create a unique temp folder in user-specified writable location
-  zip_name <- tools::file_path_sans_ext(basename(zip_path))
+  zip_name <- file_path_sans_ext(basename(zip_path))
   unzip_dir <- file.path(temp_root, zip_name)
   dir.create(unzip_dir, showWarnings = FALSE, recursive = TRUE)
   
@@ -125,10 +116,12 @@ qaqc_zip_lidar <- function(zip_path, crs_proj = "ESRI:103069", temp_root = "F:/M
     unlink(unzip_dir, recursive = TRUE)
     return(NULL)
   }
-
-  # Read LAScatalog from the root unzip folder (recursive by default)
-  message("Reading LAScatalog from unzip folder: ", unzip_dir)
-  cat_las <- readLAScatalog(unzip_dir)
+  
+  # Dynamically get the top-level folder containing laz files
+  las_folder <- dirname(laz_files[1])  # Use directory of first laz file
+  message("Reading LAScatalog from unzip folder: ", las_folder)
+  
+  cat_las <- readLAScatalog(las_folder)
   
   message("Projection:", print(projection(cat_las)))
   projection(cat_las) <- crs_proj
@@ -141,17 +134,120 @@ qaqc_zip_lidar <- function(zip_path, crs_proj = "ESRI:103069", temp_root = "F:/M
   message("Done processing: ", zip_path)
   return(footprints_sf)
 }
+
+#function for grabbing the footprints of manually unzipped areas
+qaqc_lidar <- function(unzip_path, crs_proj = "ESRI:103069") {
+  # Recursively find all .laz files in the provided folder
+  all_files <- list.files(laz_folder_path, recursive = TRUE, full.names = TRUE)
+  laz_files <- all_files[grepl("\\.laz$", all_files, ignore.case = TRUE)]
+  
+  # Check if any laz files were found
+  if (length(laz_files) == 0) {
+    warning("No .laz files found in: ", laz_folder_path)
+    return(NULL)
+  }
+  
+  # Get the folder where the laz files are located
+  las_folder <- dirname(laz_files[1])
+  message("Reading LAScatalog from folder: ", las_folder)
+  
+  cat_las <- readLAScatalog(las_folder)
+  
+  message("Original projection:", print(projection(cat_las)))
+  projection(cat_las) <- crs_proj
+  
+  footprints_sf <- st_as_sf(cat_las)
+  
+  message("Done processing: ", laz_folder_path)
+  return(footprints_sf)
+}
+
+#Function for grabbing footprints of zipped laz files with different crs than the rest
+qaqc_zip_lidar_crs <- function(zip_path, crs_proj = "EPSG:6487", temp_root = "F:/MASTERS/THESIS/data/raw_lidar/tmp_unzip") {
+  # Create a unique temp folder in user-specified writable location
+  zip_name <- file_path_sans_ext(basename(zip_path))
+  unzip_dir <- file.path(temp_root, zip_name)
+  dir.create(unzip_dir, showWarnings = FALSE, recursive = TRUE)
+  
+  message("Unzipping: ", zip_path)
+  unzip(zip_path, exdir = unzip_dir)
+  
+  # Recursively find all .laz files
+  all_files <- list.files(unzip_dir, recursive = TRUE, full.names = TRUE)
+  laz_files <- all_files[grepl("\\.laz$", all_files, ignore.case = TRUE)]
+  
+  # Check if any laz files were found
+  if (length(laz_files) == 0) {
+    warning("No .laz files found in: ", zip_path)
+    unlink(unzip_dir, recursive = TRUE)
+    return(NULL)
+  }
+  
+  # Dynamically get the top-level folder containing laz files
+  las_folder <- dirname(laz_files[1])  # Use directory of first laz file
+  message("Reading LAScatalog from unzip folder: ", las_folder)
+  
+  cat_las <- readLAScatalog(las_folder)
+  
+  message("Projection:", print(projection(cat_las)))
+  projection(cat_las) <- crs_proj
+  
+  footprints_sf <- st_as_sf(cat_las)
+  
+  message("Cleaning up temporary files...")
+  unlink(unzip_dir, recursive = TRUE)
+  
+  message("Done processing: ", zip_path)
+  return(footprints_sf)
+}
+
 # Begin the unzipping and footprint generation process
-#starting at 4:47 PM 
+#starting at 3:58 PM 
 #
-#
+#Paths to laz files for folder structure type 1 (still zipped)
+zip_files <- c("F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2018/Mont_2018_BLK2.zip", 
+                  "F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2018/Mont_2018_BLK4.zip",
+  "F:/MASTERS/THESIS/data/raw_lidar/Howard/2018/How_2018_BLK_1.zip",
+  "F:/MASTERS/THESIS/data/raw_lidar/Howard/2018/How_2018_BLK_2.zip",
+)
+
+#Paths to laz files for folder structure type 2 (mannually unzipped)
+unzip_files <- c("F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2020/Mont_2020_BLK2.zip", 
+                  "F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2020/Mont_2020_BLK4.zip",
+                 "F:/MASTERS/THESIS/data/raw_lidar/Baltimore/2015/BLK_30/BLK_30/LAZ",
+                 "F:/MASTERS/THESIS/data/raw_lidar/Baltimore/2015/BLK_31/BLK_31/LAZ"
+                 
+)
+
+#Paths to laz files with different crs than the rest 
+harf_files <- c("F:/MASTERS/THESIS/data/raw_lidar/Harford/2020/Harford_2020_BLK1.zip")
+
+#harf_files <- c("F:/MASTERS/THESIS/data/raw_lidar/Harford/2020/Harford_2020_BLK1.zip", 
+#                "F:/MASTERS/THESIS/data/raw_lidar/Harford/2013/Harford_2013_BLK34.zip")
+
 all_footprints <- list()
 
 for (zip_file in zip_files) {
-  footprints <- qaqc_zip_lidar(zip_file)
+  footprints <- qaqc_zip_lidar_t1(zip_file)
   zip_name <- tools::file_path_sans_ext(basename(zip_file))
   all_footprints[[zip_name]] <- footprints
 }
+
+for (zip_file in unzip_files) {
+  footprints <- qaqc_lidar(zip_file)
+  zip_name <- tools::file_path_sans_ext(basename(zip_file))
+  all_footprints[[zip_name]] <- footprints
+}
+
+for (zip_file in harf_files) {
+  footprints <- qaqc_zip_lidar_crs(zip_file)
+  zip_name <- tools::file_path_sans_ext(basename(zip_file))
+  all_footprints[[zip_name]] <- footprints
+}
+
+
+
+
 
 
 #Keep only similar columns
@@ -323,7 +419,8 @@ st_write(combined_footprints, "path/to/save/combined_footprints.shp", delete_dsn
 
 
 #Harford did not like the crs assigned and plotted in West Virginia. lidR package does not have the ability to reproject lascatalog items until they have already been converted to las files. We will handle Harford county separately. 
-zip_files <- c("F:/MASTERS/THESIS/data/raw_lidar/Harford/2020/Harford_2020_BLK1.zip", "F:/MASTERS/THESIS/data/raw_lidar/Harford/2013/Harford_2013_BLK34.zip")
+zip_files <- c("F:/MASTERS/THESIS/data/raw_lidar/Harford/2020/Harford_2020_BLK1.zip", 
+               "F:/MASTERS/THESIS/data/raw_lidar/Harford/2013/Harford_2013_BLK34.zip")
 
 
 harf1_cat <- readLAScatalog("F:/MASTERS/THESIS/data/raw_lidar/Harford/2020/Harford_2020_BLK1/Harford_2020_BLK1")
