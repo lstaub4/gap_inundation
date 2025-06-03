@@ -138,12 +138,12 @@ qaqc_zip_lidar <- function(zip_path, crs_proj = "ESRI:103069", temp_root = "F:/M
 #function for grabbing the footprints of manually unzipped areas
 qaqc_lidar <- function(unzip_path, crs_proj = "ESRI:103069") {
   # Recursively find all .laz files in the provided folder
-  all_files <- list.files(laz_folder_path, recursive = TRUE, full.names = TRUE)
+  all_files <- list.files(unzip_path, recursive = TRUE, full.names = TRUE)
   laz_files <- all_files[grepl("\\.laz$", all_files, ignore.case = TRUE)]
   
   # Check if any laz files were found
   if (length(laz_files) == 0) {
-    warning("No .laz files found in: ", laz_folder_path)
+    warning("No .laz files found in: ", unzip_path)
     return(NULL)
   }
   
@@ -158,7 +158,7 @@ qaqc_lidar <- function(unzip_path, crs_proj = "ESRI:103069") {
   
   footprints_sf <- st_as_sf(cat_las)
   
-  message("Done processing: ", laz_folder_path)
+  message("Done processing: ", unzip_path)
   return(footprints_sf)
 }
 
@@ -208,14 +208,14 @@ qaqc_zip_lidar_crs <- function(zip_path, crs_proj = "EPSG:6487", temp_root = "F:
 zip_files <- c("F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2018/Mont_2018_BLK2.zip", 
                   "F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2018/Mont_2018_BLK4.zip",
   "F:/MASTERS/THESIS/data/raw_lidar/Howard/2018/How_2018_BLK_1.zip",
-  "F:/MASTERS/THESIS/data/raw_lidar/Howard/2018/How_2018_BLK_2.zip",
+  "F:/MASTERS/THESIS/data/raw_lidar/Howard/2018/How_2018_BLK_2.zip"
 )
 
 #Paths to laz files for folder structure type 2 (mannually unzipped)
-unzip_files <- c("F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2020/Mont_2020_BLK2.zip", 
-                  "F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2020/Mont_2020_BLK4.zip",
-                 "F:/MASTERS/THESIS/data/raw_lidar/Baltimore/2015/BLK_30/BLK_30/LAZ",
-                 "F:/MASTERS/THESIS/data/raw_lidar/Baltimore/2015/BLK_31/BLK_31/LAZ"
+unzip_files <- c("F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2020/Montgomery_2020_BLK2/Montgomery_2020_BLK2", 
+                  "F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2020/Montgomery_2020_BLK4/Montgomery_2020_BLK4"#,
+                 #"F:/MASTERS/THESIS/data/raw_lidar/Baltimore/2015/BLK_30/BLK_30/LAZ",
+                 #"F:/MASTERS/THESIS/data/raw_lidar/Baltimore/2015/BLK_31/BLK_31/LAZ"
                  
 )
 
@@ -228,7 +228,7 @@ harf_files <- c("F:/MASTERS/THESIS/data/raw_lidar/Harford/2020/Harford_2020_BLK1
 all_footprints <- list()
 
 for (zip_file in zip_files) {
-  footprints <- qaqc_zip_lidar_t1(zip_file)
+  footprints <- qaqc_zip_lidar(zip_file)
   zip_name <- tools::file_path_sans_ext(basename(zip_file))
   all_footprints[[zip_name]] <- footprints
 }
@@ -246,38 +246,36 @@ for (zip_file in harf_files) {
 }
 
 
-
-
-
-
-#Keep only similar columns
-common_cols <- intersect(names(all_footprints), names(mont4_footprints))
-all_footprints <- all_footprints[, common_cols]
-mont4_footprints <- mont4_footprints[, common_cols]
-
-all_footprints <- rbind(all_footprints, mont4_footprints)
-
 #Visualize footprints for all downloaded laz data to ensure correct files were downloaded.
 #Load study areas shapefile
 extents<- read_sf("F:/MASTERS/THESIS/data/extents/all_extents.shp")
-# Combine the footprints list into one sf object
-# Add a column to each footprint indicating its source
+# Combine the footprints list into one sf object and add a column that indicates which zip folder each group of laz files came from.
+#Harford county is a different crs, lets make sure everything is the same crs
+target_crs <- st_crs(extents)
+
 all_footprints_named <- lapply(names(all_footprints), function(name) {
   sf_obj <- all_footprints[[name]]
+  
+  # Reproject if CRS doesn't match target
+  if (!is.null(sf_obj) && st_crs(sf_obj) != target_crs) {
+    sf_obj <- st_transform(sf_obj, target_crs)
+  }
+  
   sf_obj$source_zip <- name  # Add zip name as a new column
   return(sf_obj)
 })
+
 combined_footprints <- do.call(rbind, all_footprints_named)
 
 #save
-st_write(combined_footprints, "F:/MASTERS/THESIS/data/raw_lidar/all_lidar_footprints.shp")
+st_write(combined_footprints, "F:/MASTERS/THESIS/data/raw_lidar/all_lidar_footprints.shp", append=FALSE)
 
 # Plot with your study area polygons (`extents`)
 mapview(extents, col.regions = "red", alpha.regions = 0.5) + 
-  mapview(all_footprints, 
+  mapview(combined_footprints, 
           color = "lightblue", 
           layer.name = "LAS Catalog",
-          zcol = "sorc_zp",
+          zcol = "source_zip",
           alpha.regions = 0.3
           )
 
