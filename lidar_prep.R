@@ -213,17 +213,15 @@ zip_files <- c("F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2018/Mont_2018_BLK2.
 
 #Paths to laz files for folder structure type 2 (mannually unzipped)
 unzip_files <- c("F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2020/Montgomery_2020_BLK2/Montgomery_2020_BLK2", 
-                  "F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2020/Montgomery_2020_BLK4/Montgomery_2020_BLK4"#,
-                 #"F:/MASTERS/THESIS/data/raw_lidar/Baltimore/2015/BLK_30/BLK_30/LAZ",
-                 #"F:/MASTERS/THESIS/data/raw_lidar/Baltimore/2015/BLK_31/BLK_31/LAZ"
+                  "F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2020/Montgomery_2020_BLK3/Montgomery_2020_BLK3",
+                 "F:/MASTERS/THESIS/data/raw_lidar/Baltimore/2015/BLK_30/BLK_30/LAZ30",
+                 "F:/MASTERS/THESIS/data/raw_lidar/Baltimore/2015/BLK_31/BLK_31/LAZ31"
                  
 )
 
 #Paths to laz files with different crs than the rest 
 harf_files <- c("F:/MASTERS/THESIS/data/raw_lidar/Harford/2020/Harford_2020_BLK1.zip")
 
-#harf_files <- c("F:/MASTERS/THESIS/data/raw_lidar/Harford/2020/Harford_2020_BLK1.zip", 
-#                "F:/MASTERS/THESIS/data/raw_lidar/Harford/2013/Harford_2013_BLK34.zip")
 
 all_footprints <- list()
 
@@ -269,6 +267,9 @@ combined_footprints <- do.call(rbind, all_footprints_named)
 
 #save
 st_write(combined_footprints, "F:/MASTERS/THESIS/data/raw_lidar/all_lidar_footprints.shp", append=FALSE)
+
+#read in footprints
+
 
 # Plot with your study area polygons (`extents`)
 mapview(extents, col.regions = "red", alpha.regions = 0.5) + 
