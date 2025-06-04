@@ -1,7 +1,7 @@
 ##### ----- Lidar data preparation ----- #####
 #### Author: Leah E. Staub
 #### Creation Date: 04/25/2023
-#### Update Date: 06/01/2025
+#### Update Date: 06/04/2025
 #### Purpose: This script creates polygons based on study area raster extents, converts pre-downloaded laz files to las, and clips las files to study area extents. 
 
 # Set up Environment ----
@@ -208,7 +208,8 @@ qaqc_zip_lidar_crs <- function(zip_path, crs_proj = "EPSG:6487", temp_root = "F:
 zip_files <- c("F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2018/Mont_2018_BLK2.zip", 
                   "F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2018/Mont_2018_BLK4.zip",
   "F:/MASTERS/THESIS/data/raw_lidar/Howard/2018/How_2018_BLK_1.zip",
-  "F:/MASTERS/THESIS/data/raw_lidar/Howard/2018/How_2018_BLK_2.zip"
+  "F:/MASTERS/THESIS/data/raw_lidar/Howard/2018/How_2018_BLK_2.zip",
+  "F:/MASTERS/THESIS/data/raw_lidar/Harford/2013/Harford_2013_BLK34.zip"
 )
 
 #Paths to laz files for folder structure type 2 (mannually unzipped)
@@ -220,8 +221,7 @@ unzip_files <- c("F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2020/Montgomery_20
 )
 
 #Paths to laz files with different crs than the rest 
-harf_files <- c("F:/MASTERS/THESIS/data/raw_lidar/Harford/2020/Harford_2020_BLK1.zip")
-
+harf_files <- c("F:/MASTERS/THESIS/data/raw_lidar/Harford/2020/Harford_2020_BLK1.zip") 
 
 all_footprints <- list()
 
