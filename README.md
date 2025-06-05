@@ -1,15 +1,16 @@
 # Inundation Dynamics and Vegetation Structure
 *A UMBC masters thesis workspace*
+Author: Leah E. Staub
 
 ## Elevator Pitch
 Forested riparian zones buffer streams and waterways from excessive pollution but are threatened by climate change and human interference. My Research will assess the relationship between inundation dynamics and forest structure by analyzing canopy gap characteristics across three study reaches within the Maryland Piedmont. 
 
-# Key Terms
-*Riparian Zone:* The area of interaction between the aquatic and terrestrial environment forms a zone that extends upward and outward from the stream into the overhanging canopy (Swanson et al. 1982)
+## Key Terms
+**Riparian Zone:** The area of interaction between the aquatic and terrestrial environment forms a zone that extends upward and outward from the stream into the overhanging canopy (Swanson et al. 1982)
 
-*Inundation Dynamics:* Maximum water depth(ft), shear stress(lb/sq ft), maximum velocity(ft/s), duration(hrs) when flows overtopped streambanks (Van Appledorn et al., 2019).
+**Inundation Dynamics:** Maximum water depth(ft), shear stress(lb/sq ft), maximum velocity(ft/s), duration(hrs) when flows overtopped streambanks (Van Appledorn et al., 2019).
 
-*Canopy Gap:*
+**Canopy Gap:**
 ![Screenshot](images/gap_definitions.png)
 
 ## Required Datasets
