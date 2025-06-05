@@ -28,12 +28,11 @@ HEC-RAS model information goes here.
 | Montgomery | 2013 | Block 12 | 0.9m | ESRI:103069 | MDiMAP |
 | Montgomery | 2018 | Block 2 & 4 | 0.52m | ESRI:103069 | MDiMAP |
 | Montgomery | 2020 | Block 2 & 3 | 0.35m | ESRI:103069 | MDiMAP |
-| Howard | 2011 | Block x & x | 1.4m | ESRI:103069 | MDiMAP |
+| Howard | 2011 | Block 26 | 1.4m | ESRI:103069 | MDiMAP |
 | Howard | 2018 | Block 1 & 2 | 0.7m | ESRI:103069 | MDiMAP |
-| Baltimore | 2005 | Block x & x | 1.8m | ESRI:103069 | MDiMAP |
 | Baltimore | 2015 | Block 30 & 31 | 0.7m | ESRI:103069 | MDiMAP |
 | Harford | 2013 | Block 34 | 1.2m | ESRI:103069 | MDiMAP |
-| Harford | 2020 | Block x & x | 0.7m | EPSG:6487 | MDiMAP |
+| Harford | 2020 | Block 1 | 0.7m | EPSG:6487 | MDiMAP |
 
 ![Screenshot](images/rawlidar_footprints.png)
 

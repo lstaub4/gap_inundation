@@ -92,6 +92,28 @@ mapview(all_extents, col.regions = "red", alpha.regions = 0.5) +
   mapview(md_block, col.regions = "lightblue", alpha.regions = 0.5)
 
 
+
+# Laz file paths ----
+#Paths to laz files for folder structure type 1 (still zipped)
+zip_files <- c("F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2018/Mont_2018_BLK2.zip", 
+               "F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2018/Mont_2018_BLK4.zip",
+               "F:/MASTERS/THESIS/data/raw_lidar/Howard/2018/How_2018_BLK_1.zip",
+               "F:/MASTERS/THESIS/data/raw_lidar/Howard/2018/How_2018_BLK_2.zip"
+)
+
+#Paths to laz files for folder structure type 2 (mannually unzipped)
+unzip_files <- c("F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2020/Montgomery_2020_BLK2/Montgomery_2020_BLK2", 
+                 "F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2020/Montgomery_2020_BLK3/Montgomery_2020_BLK3",
+                 "F:/MASTERS/THESIS/data/raw_lidar/Baltimore/2015/BLK_30/BLK_30/LAZ30",
+                 "F:/MASTERS/THESIS/data/raw_lidar/Baltimore/2015/BLK_31/BLK_31/LAZ31",
+                 "F:/MASTERS/THESIS/data/raw_lidar/Harford/2013/Harford_2013_BLK34/BLK_34/LAZ34",
+                 "F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2013/BLK_12/BLK_12/LAZ12",
+                 "F:/MASTERS/THESIS/data/raw_lidar/Howard/2011/BLK_26/BLK_26/LAZ26"
+)
+
+#Paths to laz files with different crs than the rest 
+harf_files <- c("F:/MASTERS/THESIS/data/raw_lidar/Harford/2020/Harford_2020_BLK1.zip") 
+
 # Working with raw lidar files ----
 ### Visualize Blocks downloaded to ensure we have the correct ones
 #Unzip and read in laz files as lascatalog items
@@ -203,25 +225,6 @@ qaqc_zip_lidar_crs <- function(zip_path, crs_proj = "EPSG:6487", temp_root = "F:
 
 # Begin the unzipping and footprint generation process
 #starting at 3:58 PM 
-#
-#Paths to laz files for folder structure type 1 (still zipped)
-zip_files <- c("F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2018/Mont_2018_BLK2.zip", 
-                  "F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2018/Mont_2018_BLK4.zip",
-  "F:/MASTERS/THESIS/data/raw_lidar/Howard/2018/How_2018_BLK_1.zip",
-  "F:/MASTERS/THESIS/data/raw_lidar/Howard/2018/How_2018_BLK_2.zip",
-)
-
-#Paths to laz files for folder structure type 2 (mannually unzipped)
-unzip_files <- c("F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2020/Montgomery_2020_BLK2/Montgomery_2020_BLK2", 
-                  "F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2020/Montgomery_2020_BLK3/Montgomery_2020_BLK3",
-                 "F:/MASTERS/THESIS/data/raw_lidar/Baltimore/2015/BLK_30/BLK_30/LAZ30",
-                 "F:/MASTERS/THESIS/data/raw_lidar/Baltimore/2015/BLK_31/BLK_31/LAZ31",
-                 "F:/MASTERS/THESIS/data/raw_lidar/Harford/2013/Harford_2013_BLK34/BLK_34/LAZ34",
-                 "F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2013/BLK_12/BLK_12/LAZ12"
-)
-
-#Paths to laz files with different crs than the rest 
-harf_files <- c("F:/MASTERS/THESIS/data/raw_lidar/Harford/2020/Harford_2020_BLK1.zip") 
 
 all_footprints <- list()
 
@@ -282,115 +285,218 @@ mapview(extents, col.regions = "red", alpha.regions = 0.5) +
 
 mapview(blk31_footprints, col.regions = "red", alpha.regions = 0.5)
 
-
-
-### Seneca First
-#extract metadata for each block
-
-
 # Clipping raw lidar to study area ----
-#This workflow will unzip laz folders to a temp dir, -> extract footprint & save as shapefile -> clip las catalog item to study area -> save as las file -> clean up temp dir
+#This workflow will unzip laz folders to a temp dir, -> clip las catalog item to study area -> save as las file -> clean up temp dir
 
 #Load study areas shapefile
 extents<- read_sf("F:/MASTERS/THESIS/data/extents/all_extents.shp")
 
-#Set paths to each zipped laz folder
-zip_files <- c("F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2018/Mont_2018_BLK2.zip", 
-               "F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2018/Mont_2018_BLK4.zip",
-               "F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2020/Mont_2020_BLK2.zip", 
-               "F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2020/Mont_2020_BLK4.zip",
-               "F:/MASTERS/THESIS/data/raw_lidar/Howard/2018/How_2018_BLK_1.zip",
-               "F:/MASTERS/THESIS/data/raw_lidar/Howard/2018/How_2018_BLK_2.zip",
-               "F:/MASTERS/THESIS/data/raw_lidar/Howard/2018/How_2018_BLK_3.zip",
-               "F:/MASTERS/THESIS/data/raw_lidar/Baltimore/2015/BLK_30.zip",
-               "F:/MASTERS/THESIS/data/raw_lidar/Baltimore/2015/BLK_31.zip"
-)
-
-process_zip <- function(zip_path, study_area, output_dir, fallback_crs = "EPSG:2893") {
-  unzip_dir <- file.path(tempdir(), tools::file_path_sans_ext(basename(zip_path)))
+#Function for zipped files
+clip_zip_lidar <- function(zip_path, 
+                           clip_polygons, 
+                           crs_proj = "ESRI:103069", 
+                           temp_root = "F:/MASTERS/THESIS/data/raw_lidar/tmp_unzip", 
+                           output_dir = "F:/MASTERS/THESIS/data/Clip") {
+  
+  # Create a unique temp folder
+  zip_name <- file_path_sans_ext(basename(zip_path))
+  unzip_dir <- file.path(temp_root, zip_name)
   dir.create(unzip_dir, showWarnings = FALSE, recursive = TRUE)
   
   message("Unzipping: ", zip_path)
-  archive_extract(zip_path, dir = unzip_dir)
+  unzip(zip_path, exdir = unzip_dir)
   
-  #check if unzip actually happens
-  unzip_result <- tryCatch({
-    unzip(zip_path, exdir = unzip_dir)
-  }, error = function(e) {
-    message("❌ Failed to unzip: ", zip_path)
-    return(NULL)
-  })
-  
-  if (is.null(unzip_result)) {
-    warning("Could not unzip: ", zip_path)
-    return(NULL)
-  }
-  
-  all_files <- list.files(unzip_dir, recursive = TRUE, full.names = TRUE)
-  #print(paste("Files found in", unzip_dir, ":", paste(all_files, collapse = "\n")))   #temporary
-  laz_files <- list.files(unzip_dir, pattern = "\\.laz$", full.names = TRUE, recursive = TRUE)
-  
+  # Find all laz files
+  laz_files <- list.files(unzip_dir, recursive = TRUE, full.names = TRUE, pattern = "\\.laz$")
   if (length(laz_files) == 0) {
     warning("No .laz files found in: ", zip_path)
     unlink(unzip_dir, recursive = TRUE)
     return(NULL)
   }
   
-  laz_dirs <- unique(dirname(laz_files))
-  las_folder <- if (length(laz_dirs) > 1) unzip_dir else laz_dirs[1]
-  
-  message("Reading LAScatalog from: ", las_folder)
+  las_folder <- dirname(laz_files[1])
   cat_las <- readLAScatalog(las_folder)
   
-  # Detect or assign CRS
-  current_crs <- st_crs(cat_las)
-  if (is.na(current_crs)) {
-    message("CRS not found in LAS header. Assigning fallback CRS: EPSG:2893 (NAD83(HARN) / Maryland ftUS)", fallback_crs)
-    projection(cat_las) <- fallback_crs
-    current_crs <- st_crs(cat_las)
-  } else {
-    message("Detected CRS: ", current_crs$input)
-  }
+  # Set projection if needed
+  projection(cat_las) <- crs_proj
   
-  # Reproject study area to LAS CRS
-  study_area_proj <- st_transform(study_area, current_crs)
+  # Reproject clip polygons to match LAS CRS
+  clip_polygons_proj <- st_transform(extents, crs = crs_proj)
   
-  # Generate footprint
-  footprint <- st_as_sf(cat_las)
-  footprint$source_zip <- tools::file_path_sans_ext(basename(zip_path))
+  # Set output path for clipped files
+  clip_output_dir <- file.path(output_dir, zip_name)
+  dir.create(clip_output_dir, showWarnings = FALSE, recursive = TRUE)
   
-  # Quick mapview
-  print(
-    mapview(footprint, col.regions = "blue", alpha.regions = 0.4, layer.name = "LAS Footprint") +
-      mapview(study_area_proj, col.regions = "red", alpha.regions = 0.3, layer.name = "Study Area")
-  )
-  message("Mapview ready for: ", las_folder)
+  # Set catalog options
+  opt_output_files(cat_las) <- file.path(clip_output_dir, "clipped_chunk_{ID}")
+  opt_chunk_buffer(cat_las) <- 30
+  opt_chunk_size(cat_las) <- 0  # disable spatial chunking
+  opt_laz_compression(cat_las) <- TRUE
   
-  # Clip
-  clipped_catalog <- clip_roi(cat_las, study_area_proj)
+  message("Clipping point clouds...")
   
-  # Check if result is a LAScatalog
-  if (!inherits(clipped_catalog, "LAScatalog")) {
-    message("No points found in the ROI for: ", zip_path, ". Skipping...")
-    dir_delete(unzip_dir)
+  # Perform the clipping
+  clipped_catalog <- clip_roi(cat_las, clip_polygons_proj, inside = TRUE)
+  
+  message("Cleaning up temp files...")
+  unlink(unzip_dir, recursive = TRUE)
+  
+  message("Done: ", zip_path)
+  return(clipped_catalog)
+}
+
+#function for unzipped files
+clip_unzipped_lidar <- function(unzip_path,
+                                clip_polygons,
+                                crs_proj = "ESRI:103069",
+                                output_dir = "F:/MASTERS/THESIS/data/Clip") {
+  # Find all laz files
+  laz_files <- list.files(unzip_path, recursive = TRUE, full.names = TRUE, pattern = "\\.laz$", ignore.case = TRUE)
+  if (length(laz_files) == 0) {
+    warning("No .laz files found in: ", unzip_path)
     return(NULL)
   }
   
-  zip_name <- tools::file_path_sans_ext(basename(zip_path))
-  output_subdir <- file.path(output_dir, zip_name)
-  dir.create(output_subdir, showWarnings = FALSE, recursive = TRUE)
+  # Set up LAScatalog
+  las_folder <- dirname(laz_files[1])
+  message("Reading LAScatalog from: ", las_folder)
+  cat_las <- readLAScatalog(las_folder)
+  projection(cat_las) <- crs_proj
   
-  opt_output_files(clipped_catalog) <- file.path(output_subdir, "tile_{ID}")
-  opt_laz_compression(clipped_catalog) <- TRUE
+  # Reproject polygons
+  clip_polygons_proj <- st_transform(extents, crs = crs_proj)
   
-  message("Processing and writing clipped files to: ", output_subdir)
-  catalog_apply(clipped_catalog, identity)
+  # Loop over each polygon and clip
+  for (i in seq_len(nrow(clip_polygons_proj))) {
+    poly <- clip_polygons_proj[i, ]
+    poly_name <- as.character(poly$filename)
+    
+    if (is.na(poly_name) || poly_name == "") {
+      poly_name <- paste0("polygon_", i)
+    }
+    
+    # Build output folder
+    zip_name <- basename(unzip_path)
+    out_dir <- file.path(output_dir, poly_name, zip_name)
+    dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
+    
+    # Catalog options
+    opt_output_files(cat_las) <- file.path(out_dir, "clipped_chunk_{ID}")
+    opt_chunk_buffer(cat_las) <- 30
+    opt_chunk_size(cat_las) <- 0
+    opt_laz_compression(cat_las) <- TRUE
+    
+    message("Clipping to polygon: ", poly_name)
+    
+    suppressMessages({
+      clip_roi(cat_las, poly, inside = TRUE)
+    })
+  }
   
-  message("Cleaning up temporary files for: ", zip_name)
+  message("Done processing: ", unzip_path)
+  return(invisible(TRUE))
+}
+
+#function for different crs
+clip_zip_lidar_crs <- function(zip_path,
+                               clip_polygons,
+                               crs_proj = "EPSG:6487",
+                               temp_root = "F:/MASTERS/THESIS/data/raw_lidar/tmp_unzip",
+                               output_dir = "F:/MASTERS/THESIS/data/Clip") {
+  # Create a unique temp folder
+  zip_name <- file_path_sans_ext(basename(zip_path))
+  unzip_dir <- file.path(temp_root, zip_name)
+  dir.create(unzip_dir, showWarnings = FALSE, recursive = TRUE)
+  
+  message("Unzipping: ", zip_path)
+  unzip(zip_path, exdir = unzip_dir)
+  
+  # Find all laz files
+  laz_files <- list.files(unzip_dir, recursive = TRUE, full.names = TRUE, pattern = "\\.laz$", ignore.case = TRUE)
+  if (length(laz_files) == 0) {
+    warning("No .laz files found in: ", zip_path)
+    unlink(unzip_dir, recursive = TRUE)
+    return(NULL)
+  }
+  
+  # Read LAScatalog
+  las_folder <- dirname(laz_files[1])
+  message("Reading LAScatalog from: ", las_folder)
+  cat_las <- readLAScatalog(las_folder)
+  
+  # Set CRS
+  projection(cat_las) <- crs_proj
+  
+  # Reproject clipping polygons to match LAS
+  clip_polygons_proj <- st_transform(extents, crs = crs_proj)
+  
+  # Loop over each polygon
+  for (i in seq_len(nrow(clip_polygons_proj))) {
+    poly <- clip_polygons_proj[i, ]
+    poly_name <- as.character(poly$filename)
+    
+    if (is.na(poly_name) || poly_name == "") {
+      poly_name <- paste0("polygon_", i)
+    }
+    
+    # Output folder: by polygon name and zip name
+    out_dir <- file.path(output_dir, poly_name, zip_name)
+    dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
+    
+    # Set catalog options
+    opt_output_files(cat_las) <- file.path(out_dir, "clipped_chunk_{ID}")
+    opt_chunk_buffer(cat_las) <- 30
+    opt_chunk_size(cat_las) <- 0
+    opt_laz_compression(cat_las) <- TRUE
+    
+    message("Clipping to polygon: ", poly_name)
+    suppressMessages({
+      clip_roi(cat_las, poly, inside = TRUE)
+    })
+  }
+  
+  # Clean up
+  message("Cleaning up temporary files...")
   unlink(unzip_dir, recursive = TRUE)
   
-  return(list(output_path = output_subdir, footprint = footprint))
+  message("Done: ", zip_path)
+  return(invisible(TRUE))
 }
+
+#Apply functions
+all_clipped <- list()
+
+# Zip files
+for (zip_file in zip_files) {
+  message("Processing file: ", zip_file)
+  
+  clipped_result <- clip_zip_lidar(
+    zip_path = zip_file,
+    clip_polygons = clip_shapes,
+    crs_proj = "ESRI:103069",  # or match whatever CRS you’re using
+    temp_root = "F:/MASTERS/THESIS/data/raw_lidar/tmp_unzip",
+    output_dir = "F:/MASTERS/THESIS/data/Clip"
+  )
+  
+  # Save result object if needed
+  zip_name <- tools::file_path_sans_ext(basename(zip_file))
+  all_clipped[[zip_name]] <- clipped_result
+}
+
+#unzipped files
+for (unzipped_path in unzip_files) {
+  message("\n--- Processing: ", unzipped_path, " ---")
+  clip_unzipped_lidar(
+    unzip_path = unzipped_path,
+    clip_polygons = clip_shapes,
+    crs_proj = "ESRI:103069",
+    output_dir = "F:/MASTERS/THESIS/data/clipped_lidar"
+  )
+}
+
+#crs file
+
+
 
 
 #Run function 
