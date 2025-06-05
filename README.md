@@ -4,8 +4,43 @@
 ## Elevator Pitch
 Forested riparian zones buffer streams and waterways from excessive pollution but are threatened by climate change and human interference. My Research will assess the relationship between inundation dynamics and forest structure by analyzing canopy gap characteristics across three study reaches within the Maryland Piedmont. 
 
+# Key Terms
+*Riparian Zone:* The area of interaction between the aquatic and terrestrial environment forms a zone that extends upward and outward from the stream into the overhanging canopy (Swanson et al. 1982)
+
+*Inundation Dynamics:* Maximum water depth(ft), shear stress(lb/sq ft), maximum velocity(ft/s), duration(hrs) when flows overtopped streambanks (Van Appledorn et al., 2019).
+
+*Canopy Gap:*
+![Screenshot](images/gap_definitions.png)
+
+## Required Datasets
+This project requires two major pieces of information: *site specific flood regime and forest structure.* Molly Van Appledorn generated datasets that describe the flow regimes on 4 areas of interest during her PhD and UMBC using the USACE HEC-RAS software. These datasets summarize inundation dynamics for a multitude of flow regimes. Each study area has raw lidar data available that can be used to describe forest structure. Raw lidar point cloud data can be leveraged to generate Digital Elevation Models (DEMs) and Digital Surface Models (DSMs). DEMs and DSMs are the data inputs needed to generate Canopy Height Models (CHMs). CHMs are necessary for this work because they allow Canopy Gaps to be identified in the Area of Interest (AOI). 
+
+### Inundation Metrics
+HEC-RAS model information goes here. 
+
+### Lidar
+![Screenshot](images/lidar_info.png)
+
+#### Raw lidar data
+| **County** | **Year** | **Blocks covering AOI** | **Point Density** | **CRS** | **Source** | 
+| ------ | ------ | ------ | ------ | ------ | ------ |
+| Montgomery | 2013 | Block 12 | 0.9m | ESRI:103069 | MDiMAP |
+| Montgomery | 2018 | Block 2 & 4 | 0.52m | ESRI:103069 | MDiMAP |
+| Montgomery | 2020 | Block 2 & 3 | 0.35m | ESRI:103069 | MDiMAP |
+| Howard | 2011 | Block x & x | 1.4m | ESRI:103069 | MDiMAP |
+| Howard | 2018 | Block 1 & 2 | 0.7m | ESRI:103069 | MDiMAP |
+| Baltimore | 2005 | Block x & x | 1.8m | ESRI:103069 | MDiMAP |
+| Baltimore | 2015 | Block 30 & 31 | 0.7m | ESRI:103069 | MDiMAP |
+| Harford | 2013 | Block 34 | 1.2m | ESRI:103069 | MDiMAP |
+| Harford | 2020 | Block x & x | 0.7m | EPSG:6487 | MDiMAP |
+
+![Screenshot](images/rawlidar_footprints.png)
+
+## Methodology
+![Screenshot](images/schema.png)
 
 
+## References
 
 
 # Developer Guide

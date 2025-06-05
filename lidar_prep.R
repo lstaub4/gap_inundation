@@ -209,15 +209,15 @@ zip_files <- c("F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2018/Mont_2018_BLK2.
                   "F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2018/Mont_2018_BLK4.zip",
   "F:/MASTERS/THESIS/data/raw_lidar/Howard/2018/How_2018_BLK_1.zip",
   "F:/MASTERS/THESIS/data/raw_lidar/Howard/2018/How_2018_BLK_2.zip",
-  "F:/MASTERS/THESIS/data/raw_lidar/Harford/2013/Harford_2013_BLK34.zip"
 )
 
 #Paths to laz files for folder structure type 2 (mannually unzipped)
 unzip_files <- c("F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2020/Montgomery_2020_BLK2/Montgomery_2020_BLK2", 
                   "F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2020/Montgomery_2020_BLK3/Montgomery_2020_BLK3",
                  "F:/MASTERS/THESIS/data/raw_lidar/Baltimore/2015/BLK_30/BLK_30/LAZ30",
-                 "F:/MASTERS/THESIS/data/raw_lidar/Baltimore/2015/BLK_31/BLK_31/LAZ31"
-                 
+                 "F:/MASTERS/THESIS/data/raw_lidar/Baltimore/2015/BLK_31/BLK_31/LAZ31",
+                 "F:/MASTERS/THESIS/data/raw_lidar/Harford/2013/Harford_2013_BLK34/BLK_34/LAZ34",
+                 "F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2013/BLK_12/BLK_12/LAZ12"
 )
 
 #Paths to laz files with different crs than the rest 
