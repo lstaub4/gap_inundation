@@ -92,7 +92,6 @@ mapview(all_extents, col.regions = "red", alpha.regions = 0.5) +
   mapview(md_block, col.regions = "lightblue", alpha.regions = 0.5)
 
 
-
 # Laz file paths ----
 #Paths to laz files for folder structure type 1 (still zipped)
 zip_files <- c("F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2018/Mont_2018_BLK2.zip", 
@@ -487,6 +486,95 @@ for (zip_file in harf_files) {
 }
 
 # Merging Counties ----
+
+# Function to merge LAZ files for a study area
+merge_laz <- function(input_dirs, tags, output_file, remove_duplicates = TRUE) {
+  if (length(input_dirs) != length(tags)) {
+    stop("The number of input directories must match the number of tags.")
+  }
+  
+  all_las <- list()
+  
+  for (i in seq_along(input_dirs)) {
+    laz_files <- dir_ls(input_dirs[i], regexp = "\\.(laz|las)$", recurse = TRUE)
+    for (file in laz_files) {
+      las <- readLAS(file)
+      if (!is.null(las)) {
+        las@data$source_id <- tags[i]  # Add source tag
+        all_las[[length(all_las) + 1]] <- las
+      }
+    }
+  }
+  
+  # Merge all tagged LAS objects
+  las_merged <- do.call(rbind, all_las)
+  
+  # Remove exact duplicates if requested
+  if (remove_duplicates && !is.null(las_merged)) {
+    las_merged@data <- distinct(las_merged@data)  # dplyr::distinct handles data.frame-level uniqueness
+  }
+  
+  # Save merged LAS/LAZ
+  if (!is.null(las_merged)) {
+    writeLAS(las_merged, output_file)
+    message("Merged LAS file written to: ", output_file)
+  } else {
+    warning("Merge resulted in a NULL object.")
+  }
+}
+
+### Little Gunpowder Falls
+
+#Load laz files
+#Harf2013 & Balt2015
+merge_laz(
+  input_dirs = c(
+    "F:/MASTERS/THESIS/data/Clip/LAZ34/",
+    "F:/MASTERS/THESIS/data/Clip/LAZ30/"
+  ),
+  tags = c("Harf2013", "Balt2015"), #make sure tags are in correct order
+  output_file = "F:/MASTERS/THESIS/data/Merged/LGunF2013.laz"
+)
+
+#Harf2020 & Balt2015
+merge_laz(
+  input_dirs = c(
+    "F:/MASTERS/THESIS/data/Clip/Harford_2020_BLK1/clipped_chunk_1.laz",
+    "F:/MASTERS/THESIS/data/Clip/LAZ30/clipped_chunk_1.laz"
+  ),
+  tags = c("Harf2020", "Balt2015"),
+  output_file = "F:/MASTERS/THESIS/data/Merged/LGunF2020.laz"
+)
+
+#Locations of laz data
+Harf2013 <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ34/clipped_chunk_1.laz")
+Harf2020 <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/Harford_2020_BLK1/clipped_chunk_1.laz")
+Balt2015 <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ30/clipped_chunk_1.laz")
+
+
+
+### Patapsco 
+
+#Load laz files
+How2011a <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ26/clipped_chunk_2.laz")
+How2011b <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ26/clipped_chunk_3.laz")
+How2018 <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/How_2018_BLK_2/clipped_chunk_2.laz")
+Balt2015 <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ31/clipped_chunk_2.laz")
+
+### Patuxent
+
+#Load laz files
+How2011a <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ26/clipped_chunk_2.laz")
+How2011b <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ26/clipped_chunk_3.laz")
+How2018 <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/How_2018_BLK_1/clipped_chunk_3.laz")
+
+### Seneca
+
+#Load laz files
+Mont2020a <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/Montgomery_2020_BLK2/clipped_chunk_4.laz")
+Mont2020b <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/Montgomery_2020_BLK3/clipped_chunk_4.laz")
+Mont2018a <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/Mont_2018_BLK2/clipped_chunk_4.laz")
+Mont2018b <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/Mont_2018_BLK4/clipped_chunk_4.laz")
 
 ## Dealing with duplicates 
 
