@@ -487,45 +487,8 @@ for (zip_file in harf_files) {
 
 # Merging Counties ----
 
-# Function to merge LAZ files for a study area
-merge_laz <- function(input_dirs, tags, output_file, remove_duplicates = TRUE) {
-  if (length(input_dirs) != length(tags)) {
-    stop("The number of input directories must match the number of tags.")
-  }
-  
-  all_las <- list()
-  
-  for (i in seq_along(input_dirs)) {
-    laz_files <- dir_ls(input_dirs[i], regexp = "\\.(laz|las)$", recurse = TRUE)
-    for (file in laz_files) {
-      las <- readLAS(file)
-      if (!is.null(las)) {
-        las@data$source_id <- tags[i]  # Add source tag
-        all_las[[length(all_las) + 1]] <- las
-      }
-    }
-  }
-  
-  # Merge all tagged LAS objects
-  las_merged <- do.call(rbind, all_las)
-  
-  # Remove exact duplicates if requested
-  if (remove_duplicates && !is.null(las_merged)) {
-    las_merged@data <- distinct(las_merged@data)  # dplyr::distinct handles data.frame-level uniqueness
-  }
-  
-  # Save merged LAS/LAZ
-  if (!is.null(las_merged)) {
-    writeLAS(las_merged, output_file)
-    message("Merged LAS file written to: ", output_file)
-  } else {
-    warning("Merge resulted in a NULL object.")
-  }
-}
+##function to merge laz files together and save as las
 
-
-
-##New function for merge that is better for memory....
 merge_laz_catalog <- function(input_dirs, output_file, crs_target = NULL, remove_duplicates = TRUE) {
   library(lidR)
   library(fs)
@@ -571,7 +534,15 @@ merge_laz_catalog <- function(input_dirs, output_file, crs_target = NULL, remove
     warning("⚠️ No data was processed. Check that input files are valid and non-empty.")
   }
 }
-
+merge_laz_catalog(
+  input_dirs = c(
+    "F:/MASTERS/THESIS/data/Clip/LAZ31/",
+    "F:/MASTERS/THESIS/data/Clip/How_2018_BLK_2/"
+  ),
+  output_file = "F:/MASTERS/THESIS/data/Merged/Patap_15_18.laz",
+  crs_target = "EPSG:2283"  # Optional; set your known CRS if needed
+)
+## Turns out the files are too big to merge together. Going to try a retiling options which handles things in chunks
 
 
 ### Little Gunpowder Falls Merge ----
@@ -604,8 +575,13 @@ merge_laz(
 
 
 
-### Patapsco Merge ----
 
+
+
+
+
+
+### Patapsco Merge ----
 #Check crs
 ctg <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ31/clipped_chunk_2.laz")  # or a vector of files
 projection(ctg)
@@ -613,49 +589,95 @@ projection(ctg)
 ctg2 <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/How_2018_BLK_2/clipped_chunk_2.laz")  # or a vector of files
 projection(ctg2)
 
-#New.....
-merge_laz_catalog(
+
+#starting with tile size of 1000m. If running into memory issues, will try 500 or smaller. 
+#Starting with buffer size of 30m. IF need more detail for trees, should use 50 or more. buffer adds extra space around each tile when it’s created. This helps mitigate edge effects, especially for algorithms that depend on surrounding points, like lasground() (ground classification), lastrees() (tree detection), or grid_metrics(). 
+
+#Dealing with overlapping- currently this just removes exact duplicates. Should look into spatial thinning. I should consider in the areas where the counties overlap to look at point density????
+
+retile_lidar <- function(input_dirs, retile_dir, tile_size, buffer, crs_target = NULL) {
+  laz_files <- unlist(lapply(input_dirs, function(dir) {
+    fs::dir_ls(dir, regexp = "\\.(laz|las)$", recurse = TRUE)
+  }))
+  
+  if (length(laz_files) == 0) stop("No LAS/LAZ files found in input_dirs.")
+  
+  ctg <- lidR::readLAScatalog(laz_files)
+  
+  if (!is.null(crs_target)) {
+    message("Setting target CRS: ", crs_target)
+    projection(ctg) <- crs_target
+  }
+  
+  fs::dir_create(retile_dir)
+  
+  lidR::opt_chunk_size(ctg) <- tile_size
+  lidR::opt_chunk_buffer(ctg) <- buffer
+  lidR::opt_output_files(ctg) <- file.path(retile_dir, "tile_{XLEFT}_{YBOTTOM}")
+  lidR::opt_independent_files(ctg) <- TRUE
+  
+  catalog_apply(ctg, function(chunk, ...) {
+    las <- readLAS(chunk)
+    return(las)
+  })
+  
+  message("Retiling complete. Tiles saved to: ", retile_dir)
+}
+
+
+process_tile <- function(lasfile, output_dir, remove_duplicates = TRUE) {
+  las <- readLAS(lasfile)
+  if (is.null(las) || npoints(las) == 0) {
+    message("Skipping empty or invalid file: ", lasfile)
+    return(NULL)
+  }
+  
+  if (remove_duplicates) {
+    las@data <- dplyr::distinct(las@data)
+  }
+  
+  # Classify ground
+  las <- lasground(las, algorithm = csf())
+  
+  # Filter to keep ground, vegetation, and last returns (surface)
+  las <- lasfilter(las,
+                   Classification %in% c(2:5) | ReturnNumber == NumberOfReturns)
+  
+  # Write as LAZ instead of LAS
+  out_file <- file.path(output_dir, sub("\\.las$", ".laz", basename(lasfile)))
+  writeLAS(las, out_file)
+  
+  message("Processed tile saved: ", out_file)
+  return(out_file)
+}
+
+
+# Step 3: Run the full workflow
+run_workflow <- function(input_dirs, retile_dir, processed_dir, tile_size, buffer, crs_target = NULL) {
+  # Retile first
+  retile_lidar(input_dirs, retile_dir, tile_size, buffer, crs_target)
+  
+  # Process retiled tiles
+  tile_files <- list.files(retile_dir, pattern = "\\.laz$", full.names = TRUE)
+  dir_create(processed_dir)
+  
+  lapply(tile_files, function(f) process_tile(f, processed_dir))
+  
+  message("All tiles processed and saved in: ", processed_dir)
+}
+
+# Usage example:
+run_workflow(
   input_dirs = c(
     "F:/MASTERS/THESIS/data/Clip/LAZ31/",
     "F:/MASTERS/THESIS/data/Clip/How_2018_BLK_2/"
   ),
-  output_file = "F:/MASTERS/THESIS/data/Merged/Patap_15_18.laz",
-  crs_target = "EPSG:2283"  # Optional; set your known CRS if needed
+  retile_dir = "F:/MASTERS/THESIS/data/Retiled/",
+  processed_dir = "F:/MASTERS/THESIS/data/Processed/",
+  tile_size = 1000,
+  buffer = 30,
+  crs_target = "+proj=lcc +lat_0=37.6666666666667 +lon_0=-77 +lat_1=39.45 +lat_2=38.3 +x_0=399999.9998984 +y_0=0 +ellps=GRS80 +units=us-ft +no_defs"
 )
-
-###Visualize overlaps
-# List all LAZ files
-laz_files <- list.files(input_dirs, pattern = "\\.(laz|las)$", full.names = TRUE, recursive = TRUE)
-
-# Create a data frame of bounding boxes
-las_bounds <- lapply(laz_files, function(file) {
-  header <- readLASheader(file)
-  bbox <- header@PHB
-  data.frame(
-    filename = basename(file),
-    xmin = bbox$`Min X`, xmax = bbox$`Max X`,
-    ymin = bbox$`Min Y`, ymax = bbox$`Max Y`
-  )
-}) %>%
-  bind_rows()
-
-#convert to poly
-las_polys <- las_bounds %>%
-  rowwise() %>%
-  mutate(geometry = list(st_polygon(list(matrix(
-    c(xmin, ymin,
-      xmax, ymin,
-      xmax, ymax,
-      xmin, ymax,
-      xmin, ymin), 
-    ncol = 2, byrow = TRUE))))) %>%
-  st_as_sf(crs = "+proj=lcc +lat_0=37.6666666666667 +lon_0=-77 +lat_1=39.45 +lat_2=38.3 +x_0=399999.9998984 +y_0=0 +ellps=GRS80 +units=us-ft +no_defs")
-
-#Visualize
-overlaps <- st_intersection(las_polys)
-ggplot(overlaps) +
-  geom_sf(fill = "red", alpha = 0.4) +
-  ggtitle("Overlapping Areas Between LAS Files")
 
 #Locations of laz files
 # How2011a <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ26/clipped_chunk_2.laz")
