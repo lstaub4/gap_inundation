@@ -1,12 +1,12 @@
 ##### ----- Lidar data preparation ----- #####
 #### Author: Leah E. Staub
 #### Creation Date: 04/25/2023
-#### Update Date: 06/04/2025
+#### Update Date: 07/06/2025
 #### Purpose: This script creates polygons based on study area raster extents, converts pre-downloaded laz files to las, and clips las files to study area extents. 
 
 # Set up Environment ----
 library(pacman)
-p_load(mapview, sf, ggplot2, mapview, lidR, terra, tidyterra, fs, archive, tools)
+p_load(mapview, sf, ggplot2, mapview, lidR, terra, tidyterra, fs, archive, tools, tidyverse)
 
 # Create clipping polygon ----
 #Load MD county lidar blocks shapefile
@@ -80,7 +80,7 @@ all_extents <- do.call(rbind, bbox_list)
 #save out as 1 file
 write_sf(all_extents, "F:/MASTERS/THESIS/data/extents/all_extents.shp")
 
-## Batch Clip Quantiles ----
+## Batch Clip Quantiles Extents ----
 #this is where we will make a mask of the quantile rasters and create polygons from them. 
 
 
@@ -100,7 +100,7 @@ zip_files <- c("F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2018/Mont_2018_BLK2.
                "F:/MASTERS/THESIS/data/raw_lidar/Howard/2018/How_2018_BLK_2.zip"
 )
 
-#Paths to laz files for folder structure type 2 (mannually unzipped)
+#Paths to laz files for folder structure type 2 (manually unzipped)
 unzip_files <- c("F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2020/Montgomery_2020_BLK2/Montgomery_2020_BLK2", 
                  "F:/MASTERS/THESIS/data/raw_lidar/Montgomery/2020/Montgomery_2020_BLK3/Montgomery_2020_BLK3",
                  "F:/MASTERS/THESIS/data/raw_lidar/Baltimore/2015/BLK_30/BLK_30/LAZ30",
@@ -523,7 +523,58 @@ merge_laz <- function(input_dirs, tags, output_file, remove_duplicates = TRUE) {
   }
 }
 
-### Little Gunpowder Falls
+
+
+##New function for merge that is better for memory....
+merge_laz_catalog <- function(input_dirs, output_file, crs_target = NULL, remove_duplicates = TRUE) {
+  library(lidR)
+  library(fs)
+  library(dplyr)
+  
+  # 1. List all LAZ/LAS files
+  laz_files <- unlist(lapply(input_dirs, function(dir) dir_ls(dir, regexp = "\\.(laz|las)$", recurse = TRUE)))
+  
+  if (length(laz_files) == 0) stop("No LAS/LAZ files found in input_dirs.")
+  
+  # 2. Create a LAScatalog from file paths
+  ctg <- readLAScatalog(laz_files)
+  
+  # Optional: Force to a common CRS
+  if (!is.null(crs_target)) {
+    message("Setting target CRS: ", crs_target)
+    projection(ctg) <- crs_target
+  }
+  
+  # 3. Merge and optionally remove duplicates using catalog_apply
+  process_chunk <- function(chunk, ...) {
+    las <- readLAS(chunk)
+    if (is.null(las) || npoints(las) == 0) return(NULL)
+    
+    if (remove_duplicates) {
+      las@data <- dplyr::distinct(las@data)
+    }
+    
+    return(las)
+  }
+  
+  opt_independent_files(ctg) <- TRUE
+  opt_chunk_size(ctg) <- 0
+  
+  # 4. Run the merge
+  merged <- catalog_apply(ctg, process_chunk)
+  
+  # 5. Write to final output file
+  if (!is.null(merged)) {
+    writeLAS(merged, output_file)
+    message("✅ Merged LAS file written to: ", output_file)
+  } else {
+    warning("⚠️ No data was processed. Check that input files are valid and non-empty.")
+  }
+}
+
+
+
+### Little Gunpowder Falls Merge ----
 
 #Load laz files
 #Harf2013 & Balt2015
@@ -547,19 +598,76 @@ merge_laz(
 )
 
 #Locations of laz data
-Harf2013 <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ34/clipped_chunk_1.laz")
-Harf2020 <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/Harford_2020_BLK1/clipped_chunk_1.laz")
-Balt2015 <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ30/clipped_chunk_1.laz")
+# Harf2013 <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ34/clipped_chunk_1.laz")
+# Harf2020 <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/Harford_2020_BLK1/clipped_chunk_1.laz")
+# Balt2015 <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ30/clipped_chunk_1.laz")
 
 
 
-### Patapsco 
+### Patapsco Merge ----
 
-#Load laz files
-How2011a <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ26/clipped_chunk_2.laz")
-How2011b <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ26/clipped_chunk_3.laz")
-How2018 <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/How_2018_BLK_2/clipped_chunk_2.laz")
-Balt2015 <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ31/clipped_chunk_2.laz")
+#Check crs
+ctg <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ31/clipped_chunk_2.laz")  # or a vector of files
+projection(ctg)
+
+ctg2 <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/How_2018_BLK_2/clipped_chunk_2.laz")  # or a vector of files
+projection(ctg2)
+
+#New.....
+merge_laz_catalog(
+  input_dirs = c(
+    "F:/MASTERS/THESIS/data/Clip/LAZ31/",
+    "F:/MASTERS/THESIS/data/Clip/How_2018_BLK_2/"
+  ),
+  output_file = "F:/MASTERS/THESIS/data/Merged/Patap_15_18.laz",
+  crs_target = "EPSG:2283"  # Optional; set your known CRS if needed
+)
+
+###Visualize overlaps
+# List all LAZ files
+laz_files <- list.files(input_dirs, pattern = "\\.(laz|las)$", full.names = TRUE, recursive = TRUE)
+
+# Create a data frame of bounding boxes
+las_bounds <- lapply(laz_files, function(file) {
+  header <- readLASheader(file)
+  bbox <- header@PHB
+  data.frame(
+    filename = basename(file),
+    xmin = bbox$`Min X`, xmax = bbox$`Max X`,
+    ymin = bbox$`Min Y`, ymax = bbox$`Max Y`
+  )
+}) %>%
+  bind_rows()
+
+#convert to poly
+las_polys <- las_bounds %>%
+  rowwise() %>%
+  mutate(geometry = list(st_polygon(list(matrix(
+    c(xmin, ymin,
+      xmax, ymin,
+      xmax, ymax,
+      xmin, ymax,
+      xmin, ymin), 
+    ncol = 2, byrow = TRUE))))) %>%
+  st_as_sf(crs = "+proj=lcc +lat_0=37.6666666666667 +lon_0=-77 +lat_1=39.45 +lat_2=38.3 +x_0=399999.9998984 +y_0=0 +ellps=GRS80 +units=us-ft +no_defs")
+
+#Visualize
+overlaps <- st_intersection(las_polys)
+ggplot(overlaps) +
+  geom_sf(fill = "red", alpha = 0.4) +
+  ggtitle("Overlapping Areas Between LAS Files")
+
+#Locations of laz files
+# How2011a <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ26/clipped_chunk_2.laz")
+# How2011b <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ26/clipped_chunk_3.laz")
+# How2018 <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/How_2018_BLK_2/clipped_chunk_2.laz")
+# Balt2015 <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ31/clipped_chunk_2.laz")
+
+
+
+
+
+
 
 ### Patuxent
 
