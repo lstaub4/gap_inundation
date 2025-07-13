@@ -593,9 +593,11 @@ projection(ctg2)
 #starting with tile size of 1000m. If running into memory issues, will try 500 or smaller. 
 #Starting with buffer size of 30m. IF need more detail for trees, should use 50 or more. buffer adds extra space around each tile when it’s created. This helps mitigate edge effects, especially for algorithms that depend on surrounding points, like lasground() (ground classification), lastrees() (tree detection), or grid_metrics(). 
 
-#Dealing with overlapping- currently this just removes exact duplicates. Should look into spatial thinning. I should consider in the areas where the counties overlap to look at point density????
+#Dealing with overlapping- currently this just removes exact duplicates. Should look into spatial thinning. I should consider in the areas where the counties overlap to look at point density???? I definitely need to address this our the raster products will look wonky. --need to clip buffer!!!
 
-retile_lidar <- function(input_dirs, retile_dir, tile_size, buffer, crs_target = NULL) {
+##Retile lidar Function: 
+#Read in Raw LAZ files. Set chunking sizes to 1000 meter x 1000m tile chunks with 30 meter buffers on all sides. Saves each tile into a 'Retiled' directory. 
+retile_lidar <- function(input_dirs, retile_dir, tile_size, buffer, crs_target = NULL, tile_basename = "tile") {
   laz_files <- unlist(lapply(input_dirs, function(dir) {
     fs::dir_ls(dir, regexp = "\\.(laz|las)$", recurse = TRUE)
   }))
@@ -613,7 +615,7 @@ retile_lidar <- function(input_dirs, retile_dir, tile_size, buffer, crs_target =
   
   lidR::opt_chunk_size(ctg) <- tile_size
   lidR::opt_chunk_buffer(ctg) <- buffer
-  lidR::opt_output_files(ctg) <- file.path(retile_dir, "tile_{XLEFT}_{YBOTTOM}")
+  lidR::opt_output_files(ctg) <- file.path(retile_dir, paste0(tile_basename, "tile_{XLEFT}_{YBOTTOM}.las"))
   lidR::opt_independent_files(ctg) <- TRUE
   
   catalog_apply(ctg, function(chunk, ...) {
@@ -624,6 +626,8 @@ retile_lidar <- function(input_dirs, retile_dir, tile_size, buffer, crs_target =
   message("Retiling complete. Tiles saved to: ", retile_dir)
 }
 
+##Process_tile Function: 
+#Loops over each tile in the retile directory. Removes exact duplicates, classifies ground points, and filters to ground, vegetation (classes 3-5) and last returns.Writes the filtered and classified tiles to the processed dir. This function currently only filters vegetation points if it is pre-classified in the original pointcloud. If it is not, it should only keep ground and surface points. 
 process_tile <- function(lasfile, output_dir, remove_duplicates = TRUE) {
   las <- readLAS(lasfile)
   if (is.null(las) || npoints(las) == 0) {
@@ -643,19 +647,19 @@ process_tile <- function(lasfile, output_dir, remove_duplicates = TRUE) {
                    Classification %in% c(2:5) | ReturnNumber == NumberOfReturns)
   
   # Write as LAZ instead of LAS
-  out_file <- file.path(output_dir, sub("\\.las$", ".laz", basename(lasfile)))
+  out_file <- file.path(output_dir, sub("\\.(las|laz)$", ".laz", basename(lasfile)))
   writeLAS(las, out_file)
   
   message("Processed tile saved: ", out_file)
   return(out_file)
 }
 
-run_workflow <- function(input_dirs, retile_dir, processed_dir, tile_size, buffer, crs_target = NULL) {
+run_workflow <- function(input_dirs, retile_dir, processed_dir, tile_size, buffer, crs_target = NULL, tile_basename = "tile") {
   # Retile first
-  retile_lidar(input_dirs, retile_dir, tile_size, buffer, crs_target)
+  retile_lidar(input_dirs, retile_dir, tile_size, buffer, crs_target, tile_basename)
   
   # Process retiled tiles
-  tile_files <- list.files(retile_dir, pattern = "\\.laz$", full.names = TRUE)
+  tile_files <- list.files(retile_dir, pattern = "\\.(las|laz)$", full.names = TRUE)
   dir_create(processed_dir)
   
   lapply(tile_files, function(f) process_tile(f, processed_dir))
@@ -663,7 +667,7 @@ run_workflow <- function(input_dirs, retile_dir, processed_dir, tile_size, buffe
   message("All tiles processed and saved in: ", processed_dir)
 }
 
-# Usage example:
+# Patap 2015/2018
 run_workflow(
   input_dirs = c(
     "F:/MASTERS/THESIS/data/Clip/LAZ31/",
@@ -673,12 +677,24 @@ run_workflow(
   processed_dir = "F:/MASTERS/THESIS/data/Processed/",
   tile_size = 1000,
   buffer = 30,
-  crs_target = "EPSG:2283"
+  crs_target = "EPSG:32149",
+  tile_basename = "Patap18_15"
 )
 
 
-
-
+# Patap 2011/2018
+run_workflow(
+  input_dirs = c(
+    "F:/MASTERS/THESIS/data/Clip/LAZ31/",
+    "F:/MASTERS/THESIS/data/Clip/LAZ26/"
+  ),
+  retile_dir = "F:/MASTERS/THESIS/data/Retiled/",
+  processed_dir = "F:/MASTERS/THESIS/data/Processed/",
+  tile_size = 1000,
+  buffer = 30,
+  crs_target = "EPSG:32149",
+  tile_basename = "Patap11_15"
+)
 
 
 
