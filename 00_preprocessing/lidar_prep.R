@@ -624,7 +624,6 @@ retile_lidar <- function(input_dirs, retile_dir, tile_size, buffer, crs_target =
   message("Retiling complete. Tiles saved to: ", retile_dir)
 }
 
-
 process_tile <- function(lasfile, output_dir, remove_duplicates = TRUE) {
   las <- readLAS(lasfile)
   if (is.null(las) || npoints(las) == 0) {
@@ -651,8 +650,6 @@ process_tile <- function(lasfile, output_dir, remove_duplicates = TRUE) {
   return(out_file)
 }
 
-
-# Step 3: Run the full workflow
 run_workflow <- function(input_dirs, retile_dir, processed_dir, tile_size, buffer, crs_target = NULL) {
   # Retile first
   retile_lidar(input_dirs, retile_dir, tile_size, buffer, crs_target)
@@ -676,8 +673,15 @@ run_workflow(
   processed_dir = "F:/MASTERS/THESIS/data/Processed/",
   tile_size = 1000,
   buffer = 30,
-  crs_target = "+proj=lcc +lat_0=37.6666666666667 +lon_0=-77 +lat_1=39.45 +lat_2=38.3 +x_0=399999.9998984 +y_0=0 +ellps=GRS80 +units=us-ft +no_defs"
+  crs_target = "EPSG:2283"
 )
+
+
+
+
+
+
+
 
 #Locations of laz files
 # How2011a <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ26/clipped_chunk_2.laz")
