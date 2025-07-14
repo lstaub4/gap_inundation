@@ -595,6 +595,8 @@ projection(ctg2)
 
 #Dealing with overlapping- currently this just removes exact duplicates. Should look into spatial thinning. I should consider in the areas where the counties overlap to look at point density???? I definitely need to address this our the raster products will look wonky. --need to clip buffer!!!
 
+##Also need to add in info for each point so I know what year it is from and what county its from....
+
 ##Retile lidar Function: 
 #Read in Raw LAZ files. Set chunking sizes to 1000 meter x 1000m tile chunks with 30 meter buffers on all sides. Saves each tile into a 'Retiled' directory. 
 retile_lidar <- function(input_dirs, retile_dir, tile_size, buffer, crs_target = NULL, tile_basename = "tile") {
@@ -618,10 +620,16 @@ retile_lidar <- function(input_dirs, retile_dir, tile_size, buffer, crs_target =
   lidR::opt_output_files(ctg) <- file.path(retile_dir, paste0(tile_basename, "tile_{XLEFT}_{YBOTTOM}"))
   lidR::opt_independent_files(ctg) <- TRUE
   
-  catalog_apply(ctg, function(chunk, ...) {
+  invisible(catalog_apply(ctg, function(chunk, ...) {
     las <- readLAS(chunk)
-    return(las)
-  })
+    if (!is.null(las)) {
+      message("📦 Tile: ", chunk@filename)
+      message("🟡 Tile has ", npoints(las), " points")
+    } else {
+      message("⚠️ Empty tile: ", chunk@filename)
+    }
+    return(chunk)  # return the chunk so lidR writes it
+  }))
   
   message("Retiling complete. Tiles saved to: ", retile_dir)
 }
@@ -640,10 +648,10 @@ process_tile <- function(lasfile, output_dir, remove_duplicates = TRUE) {
   }
   
   # Classify ground
-  las <- lasground(las, algorithm = csf())
+  las <- lidR::classify_ground(las, algorithm = csf())
   
   # Filter to keep ground, vegetation, and last returns (surface)
-  las <- lasfilter(las,
+  las <- lidR::lasfilter(las,
                    Classification %in% c(2:5) | ReturnNumber == NumberOfReturns)
   
   # Write as LAZ instead of LAS
@@ -675,7 +683,7 @@ run_workflow(
   ),
   retile_dir = "F:/MASTERS/THESIS/data/Retiled/",
   processed_dir = "F:/MASTERS/THESIS/data/Processed/",
-  tile_size = 1000,
+  tile_size = 500,
   buffer = 30,
   crs_target = "EPSG:32149",
   tile_basename = "Patap18_15"
@@ -696,7 +704,6 @@ run_workflow(
   tile_basename = "Patap11_15"
 )
 
-##Did 11/18 work? Did retiled save as .las? and NOT .laz???
 
 ##Once this is working, I should run_workflow on ALL files at once.
 
