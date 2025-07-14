@@ -622,16 +622,16 @@ retile_lidar <- function(input_dirs, retile_dir, tile_size, buffer, crs_target =
   
   invisible(catalog_apply(ctg, function(chunk, ...) {
     las <- readLAS(chunk)
+    
     if (!is.null(las)) {
-      message("📦 Tile: ", chunk_files(chunk))
+      message("📦 Processing tile...")
       message("🟡 Tile has ", npoints(las), " points")
     } else {
-      message("⚠️ Empty tile: ", chunk_files(chunk))
+      message("⚠️ Skipping empty tile")
     }
-    return(chunk)  # this triggers lidR to write the file
+    
+    return(las)  # triggers writing
   }))
-  
-  message("Retiling complete. Tiles saved to: ", retile_dir)
 }
 
 ##Process_tile Function: 
