@@ -9,10 +9,133 @@ library(pacman)
 p_load(mapview, sf, ggplot2, mapview, lidR, terra, tidyterra, fs, archive, tools, tidyverse)
 
 
+#Locations of LGF data
+# Harf2013 <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ34/clipped_chunk_1.laz")
+# Harf2020 <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/Harford_2020_BLK1/clipped_chunk_1.laz")
+# Balt2015 <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ30/clipped_chunk_1.laz")
+
+#Locations of Patap files
+# How2011a <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ26/clipped_chunk_2.laz")
+# How2011b <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ26/clipped_chunk_3.laz")
+# How2018 <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/How_2018_BLK_2/clipped_chunk_2.laz")
+# Balt2015 <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ31/clipped_chunk_2.laz")
+
+# #Locations of Patux files
+# How2011a <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ26/clipped_chunk_2.laz")
+# How2011b <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ26/clipped_chunk_3.laz")
+# How2018 <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/How_2018_BLK_1/clipped_chunk_3.laz")
+
+# #Locations of Sen files
+# Mont2020a <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/Montgomery_2020_BLK2/clipped_chunk_4.laz")
+# Mont2020b <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/Montgomery_2020_BLK3/clipped_chunk_4.laz")
+# Mont2018a <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/Mont_2018_BLK2/clipped_chunk_4.laz")
+# Mont2018b <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/Mont_2018_BLK4/clipped_chunk_4.laz")
 
 
 
 
+
+
+#### Potential New workflow -----
+process_and_save_tile <- function(chunk, output_dir, buffer, remove_duplicates = TRUE) {
+  las <- readLAS(chunk)
+  
+  if (is.null(las) || npoints(las) == 0) {
+    message("⚠️ Empty tile found, skipping")
+    return(NULL)
+  }
+  
+  message("📦 Processing tile with ", npoints(las), " points")
+  
+  # Optionally remove exact duplicate points
+  if (remove_duplicates) {
+    las@data <- distinct(las@data)
+  }
+  
+  # Classify ground
+  las <- classify_ground(las, algorithm = csf())
+  
+  # Filter to keep ground, vegetation, and surface (last returns)
+  las <- lasfilter(las, Classification %in% 2:5 | ReturnNumber == NumberOfReturns)
+  
+  # Trim buffer — keep only the core area
+  core <- raster::extent(chunk)  # extent from chunk (includes buffer)
+  core@xmin <- core@xmin + buffer
+  core@xmax <- core@xmax - buffer
+  core@ymin <- core@ymin + buffer
+  core@ymax <- core@ymax - buffer
+  las <- lasclipRectangle(las, core@xmin, core@ymin, core@xmax, core@ymax)
+  
+  # Output filename based on chunk's core origin
+  tile_name <- paste0("tile_", chunk@header$X[1], "_", chunk@header$Y[1], ".laz")
+  out_file <- file.path(output_dir, tile_name)
+  
+  writeLAS(las, out_file)
+  message("✅ Processed tile written to: ", out_file)
+  
+  return(out_file)
+}
+
+run_memory_efficient_workflow <- function(input_dirs, processed_dir, tile_size = 1000, buffer = 30, crs_target = NULL) {
+  laz_files <- unlist(lapply(input_dirs, function(dir) {
+    dir_ls(dir, regexp = "\\.(laz|las)$", recurse = TRUE)
+  }))
+  
+  if (length(laz_files) == 0) stop("No LAS/LAZ files found in input_dirs.")
+  
+  ctg <- readLAScatalog(laz_files)
+  if (!is.null(crs_target)) {
+    projection(ctg) <- crs_target
+  }
+  
+  # Configure tiling
+  opt_chunk_size(ctg) <- tile_size
+  opt_chunk_buffer(ctg) <- buffer
+  opt_output_files(ctg) <- ""  # Don’t write by default, we control writing
+  opt_progress(ctg) <- TRUE
+  
+  dir_create(processed_dir)
+  
+  catalog_apply(ctg, function(chunk, ...) {
+    process_and_save_tile(chunk, processed_dir, buffer)
+  })
+  
+  message("🎉 All tiles processed and saved in: ", processed_dir)
+}
+
+
+
+run_memory_efficient_workflow(
+  input_dirs = c(
+    "F:/MASTERS/THESIS/data/Clip/LAZ31/",
+    "F:/MASTERS/THESIS/data/Clip/How_2018_BLK_2/"
+  ),
+  processed_dir = "F:/MASTERS/THESIS/data/Processed/",
+  tile_size = 1000,
+  buffer = 30,
+  crs_target = "EPSG:32149"
+)
+
+
+
+
+
+
+
+
+
+
+
+
+
+#
+#
+#
+#
+#
+#
+#
+#
 
 
 

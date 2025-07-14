@@ -498,3 +498,105 @@ for (zip_file in harf_files) {
 
 
 
+
+# Confirm Clipping ----
+
+#Locations of LGF data
+# Harf2013 <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ34/clipped_chunk_1.laz")
+# Harf2020 <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/Harford_2020_BLK1/clipped_chunk_1.laz")
+# Balt2015 <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ30/clipped_chunk_1.laz")
+
+#Locations of Patap files
+# How2011a <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ26/clipped_chunk_2.laz")
+# How2011b <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ26/clipped_chunk_3.laz")
+# How2018 <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/How_2018_BLK_2/clipped_chunk_2.laz")
+# Balt2015 <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ31/clipped_chunk_2.laz")
+
+# #Locations of Patux files
+# How2011a <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ26/clipped_chunk_2.laz")
+# How2011b <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ26/clipped_chunk_3.laz")
+# How2018 <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/How_2018_BLK_1/clipped_chunk_3.laz")
+
+# #Locations of Sen files
+# Mont2020a <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/Montgomery_2020_BLK2/clipped_chunk_4.laz")
+# Mont2020b <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/Montgomery_2020_BLK3/clipped_chunk_4.laz")
+# Mont2018a <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/Mont_2018_BLK2/clipped_chunk_4.laz")
+# Mont2018b <- readLAScatalog("F:/MASTERS/THESIS/data/Clip/Mont_2018_BLK4/clipped_chunk_4.laz")
+
+#All laz files are in ESRI:103069 (EPSG:2248) but one of them (HARF2020) is in EPSG:6487. All of the laz files don't have a crs assigned, so I need to assign the correct ones before reprojecting to be in same crs. First, let's get HARF2020 into the correct crs. 
+#Reproject HARN2020 laz file to match the others. 
+output_dir <- "F:/MASTERS/THESIS/data/Clip/Harf2020_reprojected"
+dir.create(output_dir, showWarnings = FALSE)
+
+# Reproject 
+las<- readLAS("F:/MASTERS/THESIS/data/Clip/Harford_2020_BLK1/clipped_chunk_1.laz")
+
+#reproject horizontal from meters to feet
+las_reproj <- st_transform(las, crs = st_crs(2248))
+#convert vertical from meters to feet
+las@data$Z <- las@data$Z * 3.280833333
+# Save 
+
+writeLAS(las, file.path(output_dir, "HARF2020_ft.laz"))
+
+#Now let's load all of the laz files as catalog objects, including our newly reprojected HARF2020. 
+
+# Named list of LAScatalogs
+las_catalogs <- list(
+  Harf2013 = readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ34/clipped_chunk_1.laz"),
+  Harf2020 = readLAScatalog("F:/MASTERS/THESIS/data/Clip/Harf2020_reprojected/HARF2020_ft.laz"),
+  Balt2015a = readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ30/clipped_chunk_1.laz"),
+  Balt2015b = readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ31/clipped_chunk_2.laz"),
+  How2011a = readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ26/clipped_chunk_2.laz"),
+  How2011b = readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ26/clipped_chunk_3.laz"),
+  How2018a  = readLAScatalog("F:/MASTERS/THESIS/data/Clip/How_2018_BLK_1/clipped_chunk_3.laz"),
+  How2018b  = readLAScatalog("F:/MASTERS/THESIS/data/Clip/How_2018_BLK_2/clipped_chunk_2.laz"),
+  Mont2020a = readLAScatalog("F:/MASTERS/THESIS/data/Clip/Montgomery_2020_BLK2/clipped_chunk_4.laz"),
+  Mont2020b = readLAScatalog("F:/MASTERS/THESIS/data/Clip/Montgomery_2020_BLK3/clipped_chunk_4.laz"),
+  Mont2018a = readLAScatalog("F:/MASTERS/THESIS/data/Clip/Mont_2018_BLK2/clipped_chunk_4.laz"),
+  Mont2018b = readLAScatalog("F:/MASTERS/THESIS/data/Clip/Mont_2018_BLK4/clipped_chunk_4.laz"),
+  Mont2013a = readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ12/clipped_chunk_3.laz"),
+  Mont2013b = readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ12/clipped_chunk_4.laz")
+)
+
+#All laz files are in ESRI:103069 (EPSG:2248) but one of them (HARN2020) is in EPSG:6487. All of the laz files don't have a crs assigned, so I need to assign the correct ones before reprojecting to be in same crs.   
+
+
+# Loop through list and assign EPSG
+for (name in names(las_catalogs)) {
+  
+  # Assign EPSG:2248 
+  projection(las_catalogs[[name]]) <- st_crs(2248)$proj4string
+}
+
+#check to see if it worked! 
+lapply(las_catalogs, st_crs)
+
+
+#Function for getting laz footprint
+footprint <- function(name, catalog) {
+  bbox <- st_as_sfc(st_bbox(catalog), crs = st_crs(catalog))
+  sf <- st_sf(geometry = bbox)
+  sf$source <- name
+  return(sf)
+}
+
+# Apply function to each named item
+clipped_footprints_list <- Map(footprint, names(las_catalogs), las_catalogs)
+
+# Combine all into one sf object
+clipped_footprints <- do.call(rbind, clipped_footprints_list)
+
+
+# Split your sf object into a list of footprints by `source`
+footprints_by_source <- split(clipped_footprints, clipped_footprints$source)
+
+# Create a named list of mapview objects (one per source)
+map_layers <- lapply(names(footprints_by_source), function(name) {
+  mapview(footprints_by_source[[name]],
+          col.regions = "blue",
+          alpha.regions = 0.4,
+          layer.name = name)
+})
+
+Reduce(`+`, map_layers)
