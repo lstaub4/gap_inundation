@@ -615,7 +615,7 @@ retile_lidar <- function(input_dirs, retile_dir, tile_size, buffer, crs_target =
   
   lidR::opt_chunk_size(ctg) <- tile_size
   lidR::opt_chunk_buffer(ctg) <- buffer
-  lidR::opt_output_files(ctg) <- file.path(retile_dir, paste0(tile_basename, "tile_{XLEFT}_{YBOTTOM}.laz"))
+  lidR::opt_output_files(ctg) <- file.path(retile_dir, paste0(tile_basename, "tile_{XLEFT}_{YBOTTOM}"))
   lidR::opt_independent_files(ctg) <- TRUE
   
   catalog_apply(ctg, function(chunk, ...) {
