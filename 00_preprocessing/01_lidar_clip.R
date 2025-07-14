@@ -591,6 +591,10 @@ clipped_footprints <- do.call(rbind, clipped_footprints_list)
 # Split your sf object into a list of footprints by `source`
 footprints_by_source <- split(clipped_footprints, clipped_footprints$source)
 
+#Load study area polygons
+extents<- read_sf("F:/MASTERS/THESIS/data/extents/all_extents.shp")
+
+
 # Create a named list of mapview objects (one per source)
 map_layers <- lapply(names(footprints_by_source), function(name) {
   mapview(footprints_by_source[[name]],
@@ -599,4 +603,12 @@ map_layers <- lapply(names(footprints_by_source), function(name) {
           layer.name = name)
 })
 
-Reduce(`+`, map_layers)
+# Combine all into one map with toggleable layers
+final_map <- mapview(extents, 
+                     col.regions = "red", 
+                     alpha.regions = 0.3, 
+                     layer.name = "Study Area") + 
+  Reduce(`+`, map_layers)
+
+# View the final map
+final_map
