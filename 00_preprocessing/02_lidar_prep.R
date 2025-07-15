@@ -100,11 +100,11 @@ filter_tiles <- function(chunk, output_dir, buffer, remove_duplicates = TRUE) {
   las <- clip_rectangle(las, core[1], core[3], core[2], core[4])
   
   # Output filename based on chunk's core origin
-  tile_name <- paste0("tile_", las@header$X[1], "_", las@header$Y[1], ".laz")
-  out_file <- file.path(output_dir, tile_name)
+  #tile_name <- paste0("tile_", las@header$X[1], "_", las@header$Y[1], ".laz")
+  #out_file <- file.path(output_dir, tile_name)
   
-  writeLAS(las, out_file)
-  message("✅ Processed tile written to: ", out_file)
+  writeLAS(las)
+  message("✅ Processed tile written to: ", las@file)
   
   return(out_file)
 }
@@ -119,9 +119,10 @@ retile <- function(ctg, processed_dir, tile_size, buffer, crs_target) {
   # Configure tiling
   opt_chunk_size(ctg) <- tile_size
   opt_chunk_buffer(ctg) <- buffer
-  opt_output_files(ctg) <- ""  # Don’t write by default, we control writing
+  #opt_output_files(ctg) <- ""  # Don’t write by default, we control writing
   opt_progress(ctg) <- TRUE
   opt_filter(ctg) <- "-drop_withheld"
+  opt_output_files(ctg) <- file.path(processed_dir, paste0("{basename}_{XLEFT}_{YBOTTOM}.laz"))
   
   dir_create(processed_dir)
   
