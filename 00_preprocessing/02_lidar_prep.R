@@ -1,12 +1,12 @@
 ##### ----- Raw Point Cloud data Processing ----- #####
 #### Author: Leah E. Staub
 #### Creation Date: 07/06/2025
-#### Update Date: 07/14/2025
+#### Update Date: 07/15/2025
 #### Purpose: This script takes raw lidar point cloud data and classifies & filters it to ground, vegetation, and surface points. It does this by retiling the point cloud data for efficient processing.   
 
 # Set up Environment ----
 library(pacman)
-p_load(mapview, sf, ggplot2, mapview, lidR, terra, tidyterra, fs, archive, tools, tidyverse)
+p_load(mapview, sf, ggplot2, mapview, lidR, terra, tidyterra, fs, archive, tools, abind, RCSF)
 
 # Named list of LAScatalogs
 las_catalogs <- list(
@@ -87,18 +87,20 @@ filter_tiles <- function(chunk, output_dir, buffer, remove_duplicates = TRUE) {
   las <- classify_ground(las, algorithm = csf())
   
   # Keep ground and surface (last return) points
-  las <- lidR::lasfilter(las, Classification == 2 | ReturnNumber == NumberOfReturns)
+  las <- las[las@data$Classification == 2 | las@data$ReturnNumber == las@data$NumberOfReturns, ]
   
   # Trim buffer — keep only the core area
-  core <- raster::extent(chunk)  # extent from chunk (includes buffer)
-  core@xmin <- core@xmin + buffer
-  core@xmax <- core@xmax - buffer
-  core@ymin <- core@ymin + buffer
-  core@ymax <- core@ymax - buffer
-  las <- lasclipRectangle(las, core@xmin, core@ymin, core@xmax, core@ymax)
+  core <- ext(las)  # Get extent using terra
+  core[1] <- core[1] + buffer  # xmin
+  core[2] <- core[2] - buffer  # xmax
+  core[3] <- core[3] + buffer  # ymin
+  core[4] <- core[4] - buffer  # ymax
+  
+  # Clip the LAS object to the new extent
+  las <- clip_rectangle(las, core[1], core[3], core[2], core[4])
   
   # Output filename based on chunk's core origin
-  tile_name <- paste0("tile_", chunk@header$X[1], "_", chunk@header$Y[1], ".laz")
+  tile_name <- paste0("tile_", las@header$X[1], "_", las@header$Y[1], ".laz")
   out_file <- file.path(output_dir, tile_name)
   
   writeLAS(las, out_file)
