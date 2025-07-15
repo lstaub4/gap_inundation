@@ -68,7 +68,7 @@ lapply(las_catalogs, st_crs)
 
 
 #### Potential New workflow -----
-process_and_save_tile <- function(chunk, output_dir, buffer, remove_duplicates = TRUE) {
+filter_tiles <- function(chunk, output_dir, buffer, remove_duplicates = TRUE) {
   las <- readLAS(chunk)
   
   if (is.null(las) || npoints(las) == 0) {
@@ -86,8 +86,8 @@ process_and_save_tile <- function(chunk, output_dir, buffer, remove_duplicates =
   # Classify ground
   las <- classify_ground(las, algorithm = csf())
   
-  # Filter to keep ground, vegetation, and surface (last returns)
-  las <- lasfilter(las, Classification %in% 2:5 | ReturnNumber == NumberOfReturns)
+  # Keep ground and surface (last return) points
+  las <- lidR::lasfilter(las, Classification == 2 | ReturnNumber == NumberOfReturns)
   
   # Trim buffer — keep only the core area
   core <- raster::extent(chunk)  # extent from chunk (includes buffer)
@@ -107,14 +107,9 @@ process_and_save_tile <- function(chunk, output_dir, buffer, remove_duplicates =
   return(out_file)
 }
 
-run_memory_efficient_workflow <- function(input_dirs, processed_dir, tile_size = 1000, buffer = 30, crs_target = NULL) {
-  laz_files <- unlist(lapply(input_dirs, function(dir) {
-    dir_ls(dir, regexp = "\\.(laz|las)$", recurse = TRUE)
-  }))
+retile <- function(ctg, processed_dir, tile_size, buffer, crs_target) {
+  if (!inherits(ctg, "LAScatalog")) stop("Input must be a LAScatalog object.")
   
-  if (length(laz_files) == 0) stop("No LAS/LAZ files found in input_dirs.")
-  
-  ctg <- readLAScatalog(laz_files)
   if (!is.null(crs_target)) {
     projection(ctg) <- crs_target
   }
@@ -124,27 +119,24 @@ run_memory_efficient_workflow <- function(input_dirs, processed_dir, tile_size =
   opt_chunk_buffer(ctg) <- buffer
   opt_output_files(ctg) <- ""  # Don’t write by default, we control writing
   opt_progress(ctg) <- TRUE
+  opt_filter(ctg) <- "-drop_withheld"
   
   dir_create(processed_dir)
   
   catalog_apply(ctg, function(chunk, ...) {
-    process_and_save_tile(chunk, processed_dir, buffer)
+    filter_tiles(chunk, processed_dir, buffer)
   })
   
   message("🎉 All tiles processed and saved in: ", processed_dir)
 }
 
 
-
-run_memory_efficient_workflow(
-  input_dirs = c(
-    "F:/MASTERS/THESIS/data/Clip/LAZ31/",
-    "F:/MASTERS/THESIS/data/Clip/How_2018_BLK_2/"
-  ),
-  processed_dir = "F:/MASTERS/THESIS/data/Processed/",
+retile(
+  ctg = las_catalogs$Mont2020a,
+  processed_dir = "F:/MASTERS/THESIS/data/Processed/Mont2020a",
   tile_size = 1000,
   buffer = 30,
-  crs_target = "EPSG:32149"
+  crs_target = "EPSG:2248"
 )
 
 
