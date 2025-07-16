@@ -10,8 +10,8 @@ p_load(mapview, sf, ggplot2, mapview, lidR, terra, tidyterra, fs, archive, tools
 
 # Named list of LAScatalogs
 las_catalogs <- list(
-  Harf2013 = readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ34/clipped_chunk_1.laz"),
-  Harf2020 = readLAScatalog("F:/MASTERS/THESIS/data/Clip/Harf2020_reprojected/HARF2020_ft.laz"),
+  #Harf2013 = readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ34/clipped_chunk_1.laz"),
+  #Harf2020 = readLAScatalog("F:/MASTERS/THESIS/data/Clip/Harf2020_reprojected/HARF2020_ft.laz"),
   Balt2015a = readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ30/clipped_chunk_1.laz"),
   Balt2015b = readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ31/clipped_chunk_2.laz"),
   How2011a = readLAScatalog("F:/MASTERS/THESIS/data/Clip/LAZ26/clipped_chunk_2.laz"),
@@ -68,7 +68,7 @@ lapply(las_catalogs, st_crs)
 
 
 #### Potential New workflow -----
-filter_tiles <- function(chunk, output_dir, buffer, remove_duplicates = TRUE) {
+filter_tiles <- function(chunk, output_dir, buffer, base_name, remove_duplicates = TRUE) {
   las <- readLAS(chunk)
   
   if (is.null(las) || npoints(las) == 0) {
@@ -103,13 +103,18 @@ filter_tiles <- function(chunk, output_dir, buffer, remove_duplicates = TRUE) {
   #tile_name <- paste0("tile_", las@header$X[1], "_", las@header$Y[1], ".laz")
   #out_file <- file.path(output_dir, tile_name)
   
-  writeLAS(las)
-  message("✅ Processed tile written to: ", las@file)
+  # Output filename based on the provided base name and tile coordinates
+  tile_name <- paste0(base_name, "_tile_", round(core[1], 3), "_", round(core[3], 3), ".laz")
+  out_file <- file.path(output_dir, tile_name)
   
+  writeLAS(las, out_file)
+  
+  #writeLAS(las)
+  message("✅ Processed tile written to: ", out_file)  
   return(out_file)
 }
 
-retile <- function(ctg, processed_dir, tile_size, buffer, crs_target) {
+retile <- function(ctg, processed_dir, tile_size, buffer, crs_target, base_name) {
   if (!inherits(ctg, "LAScatalog")) stop("Input must be a LAScatalog object.")
   
   if (!is.null(crs_target)) {
@@ -119,34 +124,52 @@ retile <- function(ctg, processed_dir, tile_size, buffer, crs_target) {
   # Configure tiling
   opt_chunk_size(ctg) <- tile_size
   opt_chunk_buffer(ctg) <- buffer
-  #opt_output_files(ctg) <- ""  # Don’t write by default, we control writing
+  opt_output_files(ctg) <- ""  # Don’t write by default, we control writing
   opt_progress(ctg) <- TRUE
   opt_filter(ctg) <- "-drop_withheld"
-  opt_output_files(ctg) <- file.path(processed_dir, paste0("{basename}_{XLEFT}_{YBOTTOM}.laz"))
+  #opt_output_files(ctg) <- file.path(processed_dir, paste0("{filename}_{XLEFT}_{YBOTTOM}"))
   
   dir_create(processed_dir)
   
   catalog_apply(ctg, function(chunk, ...) {
-    filter_tiles(chunk, processed_dir, buffer)
+    filter_tiles(chunk, processed_dir, buffer, base_name)
   })
   
   message("🎉 All tiles processed and saved in: ", processed_dir)
 }
 
+for (name in names(las_catalogs)) {
+  ctg <- las_catalogs[[name]]  # Get the LAScatalog object
+  processed_dir <- file.path("F:/MASTERS/THESIS/data/Processed", name)  # Create output directory
+  
+  # Call the retile function
+  retile(
+    ctg = ctg,
+    processed_dir = processed_dir,
+    tile_size = 1000,
+    buffer = 30,
+    crs_target = "EPSG:2248",
+    base_name = name  # Use the name of the catalog as the base name
+  )
+}
 
-retile(
-  ctg = las_catalogs$Mont2020a,
-  processed_dir = "F:/MASTERS/THESIS/data/Processed/Mont2020a",
-  tile_size = 1000,
-  buffer = 30,
-  crs_target = "EPSG:2248"
-)
+# 
+# 
+# 
+# retile(
+#   ctg = las_catalogs$Mont2020a,
+#   processed_dir = "F:/MASTERS/THESIS/data/Processed/Mont2020a",
+#   tile_size = 1000,
+#   buffer = 30,
+#   crs_target = "EPSG:2248"
+# )
 
 
 
 
 
 
+##Next steps: I need to combine the processed tiles based on study area. Then I need to remove duplicates.I also need to think about which points to keep in the areas that counties overlap. I should make sure I apply county/year to each point
 
 
 
