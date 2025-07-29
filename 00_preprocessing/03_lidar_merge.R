@@ -37,6 +37,60 @@ for (name in names(las_catalogs)) {
 lapply(las_catalogs, st_crs)
 
 
+
+#Visualize footprints for all downloaded laz data to ensure correct files were downloaded.
+#Load study areas shapefile
+extents<- read_sf("F:/MASTERS/THESIS/data/extents/all_extents.shp")
+# Combine the footprints list into one sf object and add a column that indicates which zip folder each group of laz files came from.
+#Harford county is a different crs, lets make sure everything is the same crs
+target_crs <- st_crs(extents)
+
+all_footprints_named <- lapply(names(all_footprints), function(name) {
+  sf_obj <- all_footprints[[name]]
+  
+  # Reproject if CRS doesn't match target
+  if (!is.null(sf_obj) && st_crs(sf_obj) != target_crs) {
+    sf_obj <- st_transform(sf_obj, target_crs)
+  }
+  
+  sf_obj$source_zip <- name  # Add zip name as a new column
+  return(sf_obj)
+})
+
+combined_footprints <- do.call(rbind, all_footprints_named)
+
+#save
+st_write(combined_footprints, "F:/MASTERS/THESIS/data/raw_lidar/all_lidar_footprints.shp", append=FALSE)
+
+#read in footprints
+
+
+# Plot with your study area polygons (`extents`)
+mapview(extents, col.regions = "red", alpha.regions = 0.5) + 
+  mapview(combined_footprints, 
+          color = "lightblue", 
+          layer.name = "LAS Catalog",
+          zcol = "source_zip",
+          alpha.regions = 0.3
+  )
+
+mapview(blk31_footprints, col.regions = "red", alpha.regions = 0.5)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #Function for getting laz footprint
 footprint <- function(name, catalog) {
   bbox <- st_as_sfc(st_bbox(catalog), crs = st_crs(catalog))

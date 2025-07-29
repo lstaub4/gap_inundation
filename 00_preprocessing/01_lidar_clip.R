@@ -2,7 +2,7 @@
 #### Author: Leah E. Staub
 #### Creation Date: 04/25/2023
 #### Update Date: 07/14/2025
-#### Purpose: This script creates polygons based on study area raster extents, converts pre-downloaded laz files to las, and clips las files to study area extents. NOTE: to close all sections, hit Alt + O. To open all section at once, hit Alt + Shift + O. 
+#### Purpose: This script creates polygons based on study area raster extents, and clips las files to study area extents. NOTE: to close all sections, hit Alt + O. To open all section at once, hit Alt + Shift + O. 
 
 # Set up Environment ----
 library(pacman)
